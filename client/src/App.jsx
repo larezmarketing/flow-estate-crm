@@ -16,8 +16,11 @@ import RoundRobin from './pages/RoundRobin';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
 function App() {
-  // Hardcoded for production fix to avoid Vercel env issues
-  const googleClientId = "36639841213-0gmj5l445qo58t973h5d97i071gont29.apps.googleusercontent.com";
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  if (!googleClientId) {
+    console.error("Missing VITE_GOOGLE_CLIENT_ID in environment variables");
+  }
 
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
