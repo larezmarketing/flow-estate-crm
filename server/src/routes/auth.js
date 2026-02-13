@@ -70,6 +70,13 @@ router.post('/google', async (req, res) => {
     const { token } = req.body;
 
     try {
+        console.log("Debug Google Auth - Token Length:", token ? token.length : 'Missing');
+        console.log("Debug Google Auth - Client ID:", process.env.GOOGLE_CLIENT_ID);
+
+        if (!token) {
+            throw new Error("Token is missing from request body");
+        }
+
         // Verify Google Token
         const ticket = await client.verifyIdToken({
             idToken: token,
