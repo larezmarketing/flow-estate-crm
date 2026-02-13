@@ -120,7 +120,7 @@ const Login = () => {
                                             token: credentialResponse.credential,
                                         });
                                         localStorage.setItem('token', res.data.token);
-                                        localStorage.setItem('user', JSON.stringify(res.data.user));
+                                        localStorage.setItem('user', JSON.stringify(res.data.user)); // Store user info
                                         navigate('/dashboard');
                                     } catch (err) {
                                         console.error("Google Login Error:", err);
@@ -138,6 +138,13 @@ const Login = () => {
                                 width="300" // Ensure checking CSS for width
                             />
                         </div>
+
+                        <p className="mt-10 text-center text-sm text-gray-500">
+                            Not a member?{' '}
+                            <a href="/register" className="font-semibold leading-6 text-brand-blue hover:text-blue-500">
+                                Register now
+                            </a>
+                        </p>
                     </div>
                 </div>
             </div>
