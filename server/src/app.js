@@ -30,8 +30,29 @@ app.use('/api/n8n', require('./routes/n8n'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/facebook', require('./routes/auth_facebook'));
 
+const db = require('./db');
+
 app.get('/', (req, res) => {
   res.send('Flow Estate CRM API Running');
+});
+
+app.get('/health-db', async (req, res) => {
+  try {
+    const result = await db.query('SELECT NOW()');
+    res.json({
+      status: 'Connected to DB',
+      time: result.rows[0].now,
+      ssl: process.env.NODE_ENV === 'production'
+    });
+  } catch (err) {
+    console.error('Health DB Error:', err);
+    res.status(500).json({
+      status: 'DB Connection Failed',
+      message: err.message,
+      code: err.code,
+      detail: err.detail
+    });
+  }
 });
 
 if (require.main === module) {
