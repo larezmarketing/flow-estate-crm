@@ -29,6 +29,7 @@ app.use('/api/evolution', require('./routes/evolution'));
 app.use('/api/n8n', require('./routes/n8n'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/facebook', require('./routes/auth_facebook'));
+app.use('/api/users', require('./routes/users'));
 
 const db = require('./db');
 

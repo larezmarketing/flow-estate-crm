@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
 import { User, Mail, Phone, Camera, Save } from 'lucide-react';
+import axios from 'axios';
 
 const Profile = () => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')) || {});
-    // Placeholder for future update logic
     const [formData, setFormData] = useState({
         full_name: user.full_name || '',
         email: user.email || '',
-        phone: user.phone || '', // Needs DB update to support phone
+        phone: user.phone || '',
     });
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState(null);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -17,8 +19,33 @@ const Profile = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        // TODO: Implement update profile API
-        alert("Profile update functionality coming soon!");
+        setLoading(true);
+        setMessage(null);
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.put(
+                `${import.meta.env.VITE_API_URL}/api/users/profile`,
+                {
+                    full_name: formData.full_name,
+                    phone: formData.phone
+                },
+                {
+                    headers: { Authorization: token }
+                }
+            );
+
+            // Update local storage and state
+            const updatedUser = res.data.user;
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setUser(updatedUser);
+            setMessage({ type: 'success', text: 'Profile updated successfully!' });
+        } catch (err) {
+            console.error(err);
+            setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to update profile' });
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -28,6 +55,12 @@ const Profile = () => {
                     <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                         <User className="text-blue-600" /> My Profile
                     </h2>
+
+                    {message && (
+                        <div className={`p-4 mb-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                            {message.text}
+                        </div>
+                    )}
 
                     <div className="flex flex-col md:flex-row gap-8 items-start">
                         {/* Profile Picture Section */}
@@ -104,9 +137,10 @@ const Profile = () => {
                                 <div className="pt-4">
                                     <button
                                         type="submit"
-                                        className="w-full md:w-auto px-6 py-2 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 focus:ring-4 focus:ring-blue-100 transition-all flex items-center justify-center gap-2"
+                                        disabled={loading}
+                                        className="w-full md:w-auto px-6 py-2 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 focus:ring-4 focus:ring-blue-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                     >
-                                        <Save size={18} /> Save Changes
+                                        <Save size={18} /> {loading ? 'Saving...' : 'Save Changes'}
                                     </button>
                                 </div>
                             </form>
