@@ -71,24 +71,35 @@ router.post('/google', async (req, res) => {
 
     try {
         console.log("Debug Google Auth - Token Length:", token ? token.length : 'Missing');
-        console.log("Debug Google Auth - Client ID:", process.env.GOOGLE_CLIENT_ID);
+        // console.log("Debug Google Auth - Client ID:", process.env.GOOGLE_CLIENT_ID); // Masked for security
 
         if (!token) {
-            throw new Error("Token is missing from request body");
+            return res.status(400).json({ message: "Token is missing from request body" });
         }
 
         // Verify Google Token
-        const ticket = await client.verifyIdToken({
-            idToken: token,
-            audience: process.env.GOOGLE_CLIENT_ID,
-        });
-        const { email, name, picture } = ticket.getPayload();
+        let ticket;
+        try {
+            ticket = await client.verifyIdToken({
+                idToken: token,
+                audience: process.env.GOOGLE_CLIENT_ID,
+            });
+        } catch (tokenErr) {
+            console.error('Google Verify Error:', tokenErr.message);
+            return res.status(401).json({ message: 'Invalid Google Token: ' + tokenErr.message });
+        }
+
+        const payload = ticket.getPayload();
+        const { email, name, picture } = payload;
+
+        console.log("Debug Google Auth - Verified User:", email);
 
         // Check if user exists
-        let user = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        let userRes = await db.query('SELECT * FROM users WHERE email = $1', [email]);
 
-        if (user.rows.length === 0) {
-            // Create user if not exists
+        if (userRes.rows.length === 0) {
+            // Create user
+            console.log("Debug Google Auth - Creating new user");
             const generatedPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(generatedPassword, salt);
@@ -97,35 +108,37 @@ router.post('/google', async (req, res) => {
                 'INSERT INTO users (email, password_hash, full_name, role, profile_picture) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, full_name, role, profile_picture, phone',
                 [email, hashedPassword, name, 'agent', picture]
             );
-            user = { rows: [newUser.rows[0]] };
+            userRes = { rows: [newUser.rows[0]] };
         } else {
+            console.log("Debug Google Auth - User exists, checking profile picture");
             // Update profile picture if it changed
-            if (picture && user.rows[0].profile_picture !== picture) {
+            if (picture && userRes.rows[0].profile_picture !== picture) {
                 const updatedUser = await db.query(
                     'UPDATE users SET profile_picture = $1 WHERE id = $2 RETURNING id, email, full_name, role, profile_picture, phone',
-                    [picture, user.rows[0].id]
+                    [picture, userRes.rows[0].id]
                 );
-                user = { rows: [updatedUser.rows[0]] };
+                userRes = { rows: [updatedUser.rows[0]] };
             }
         }
 
         // Generate JWT
-        const jwtToken = jwt.sign({ id: user.rows[0].id, role: user.rows[0].role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const jwtToken = jwt.sign({ id: userRes.rows[0].id, role: userRes.rows[0].role }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
         res.json({
             token: jwtToken, user: {
-                id: user.rows[0].id,
-                email: user.rows[0].email,
-                full_name: user.rows[0].full_name,
-                role: user.rows[0].role,
-                profile_picture: user.rows[0].profile_picture,
-                phone: user.rows[0].phone
+                id: userRes.rows[0].id,
+                email: userRes.rows[0].email,
+                full_name: userRes.rows[0].full_name,
+                role: userRes.rows[0].role,
+                profile_picture: userRes.rows[0].profile_picture,
+                phone: userRes.rows[0].phone
             }
         });
 
     } catch (err) {
-        console.error('Google Auth Error:', err.message);
-        res.status(401).json({ message: 'Invalid Google Token' });
+        console.error('Google Auth Handler Error:', err.message);
+        // Ensure we send a JSON response even for 500 errors so frontend can display it
+        res.status(500).json({ message: 'Server Error: ' + err.message });
     }
 });
 
