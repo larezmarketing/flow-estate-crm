@@ -94,16 +94,34 @@ router.post('/google', async (req, res) => {
             const hashedPassword = await bcrypt.hash(generatedPassword, salt);
 
             const newUser = await db.query(
-                'INSERT INTO users (email, password_hash, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, full_name, role',
-                [email, hashedPassword, name, 'agent']
+                'INSERT INTO users (email, password_hash, full_name, role, profile_picture) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, full_name, role, profile_picture, phone',
+                [email, hashedPassword, name, 'agent', picture]
             );
             user = { rows: [newUser.rows[0]] };
+        } else {
+            // Update profile picture if it changed
+            if (picture && user.rows[0].profile_picture !== picture) {
+                const updatedUser = await db.query(
+                    'UPDATE users SET profile_picture = $1 WHERE id = $2 RETURNING id, email, full_name, role, profile_picture, phone',
+                    [picture, user.rows[0].id]
+                );
+                user = { rows: [updatedUser.rows[0]] };
+            }
         }
 
         // Generate JWT
         const jwtToken = jwt.sign({ id: user.rows[0].id, role: user.rows[0].role }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-        res.json({ token: jwtToken, user: { id: user.rows[0].id, email: user.rows[0].email, full_name: user.rows[0].full_name, role: user.rows[0].role } });
+        res.json({
+            token: jwtToken, user: {
+                id: user.rows[0].id,
+                email: user.rows[0].email,
+                full_name: user.rows[0].full_name,
+                role: user.rows[0].role,
+                profile_picture: user.rows[0].profile_picture,
+                phone: user.rows[0].phone
+            }
+        });
 
     } catch (err) {
         console.error('Google Auth Error:', err.message);

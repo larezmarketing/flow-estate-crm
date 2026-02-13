@@ -12,12 +12,24 @@ const Dashboard = () => {
             <div className="space-y-8 animate-in fade-in duration-500">
                 {/* Welcome Section */}
                 <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 relative overflow-hidden">
-                    <div className="relative z-10">
-                        <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                            Good morning, {user.full_name}
-                            <span className="ml-3 text-sm font-normal text-yellow-600 bg-yellow-100 px-3 py-1 rounded-full">Free account</span>
-                        </h2>
-                        <p className="text-gray-500">Here's what's happening with your projects today.</p>
+                    <div className="relative z-10 flex justify-between items-start">
+                        <div>
+                            <h2 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+                                {user.profile_picture && (
+                                    <img
+                                        src={user.profile_picture}
+                                        alt={user.full_name}
+                                        className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
+                                    />
+                                )}
+                                Good morning, {user.full_name}
+                                <span className="ml-3 text-sm font-normal text-yellow-600 bg-yellow-100 px-3 py-1 rounded-full">Free account</span>
+                            </h2>
+                            <p className="text-gray-500">Here's what's happening with your projects today.</p>
+                        </div>
+                        <a href="/profile" className="px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-sm font-medium">
+                            Edit Profile
+                        </a>
                     </div>
                     {/* Decorative circle */}
                     <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-gradient-to-br from-blue-50 to-purple-50 rounded-full blur-3xl opacity-50"></div>
