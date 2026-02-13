@@ -123,11 +123,13 @@ const Login = () => {
                                         localStorage.setItem('user', JSON.stringify(res.data.user));
                                         navigate('/dashboard');
                                     } catch (err) {
-                                        setError('Google Login failed');
+                                        console.error("Google Login Error:", err);
+                                        setError(err.response?.data?.message || err.message || 'Google Login failed');
                                     }
                                 }}
                                 onError={() => {
-                                    setError('Google Login Failed');
+                                    console.error("Google Login Failed (onError callback)");
+                                    setError('Google Login Failed (onError callback)');
                                 }}
                                 useOneTap
                                 type="standard"
