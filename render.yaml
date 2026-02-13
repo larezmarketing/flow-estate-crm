@@ -20,15 +20,3 @@ services:
       - key: EVOLUTION_API_TOKEN
         sync: false
 
-  - type: static
-    name: flow-estate-client
-    env: static
-    buildCommand: npm run build
-    staticPublishPath: ./dist
-    rootDir: client
-    envVars:
-      - key: VITE_API_URL
-        fromService:
-          type: web
-          name: flow-estate-server
-          property: host
