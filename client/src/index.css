@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+:root {
+  --color-brand-graphite: #2D2D2D;
+  --color-brand-navy: #0A0B96;
+  --color-brand-blue: #3066B9;
+  --color-brand-powder: #AFC1DF;
+  --color-brand-light: #DEDEDE;
+}
+
+@theme {
+  --color-brand-graphite: var(--color-brand-graphite);
+  --color-brand-navy: var(--color-brand-navy);
+  --color-brand-blue: var(--color-brand-blue);
+  --color-brand-powder: var(--color-brand-powder);
+  --color-brand-light: var(--color-brand-light);
+}
