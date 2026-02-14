@@ -197,14 +197,17 @@ router.post('/webhook/configure/:instanceName', checkConfig, async (req, res) =>
             {
                 enabled: true,
                 url: url,
-                webhookByEvents: false, // Correct parameter name
+                webhook_by_events: false, // Correct parameter name (snake_case)
                 events: events || [
                     "MESSAGES_UPSERT",
                     "MESSAGES_UPDATE",
                     "MESSAGES_DELETE",
                     "SEND_MESSAGE",
                     "CONNECTION_UPDATE",
-                    "GROUPS_UPSERT"
+                    "GROUPS_UPSERT",
+                    "MESSAGES_SET", // Initial history sync
+                    "CHATS_SET",    // Initial chats sync
+                    "CONTACTS_SET"  // Initial contacts sync
                 ]
             },
             { headers: getHeaders() }
