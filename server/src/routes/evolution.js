@@ -311,10 +311,23 @@ router.post('/webhook', async (req, res) => {
 
             if (leadRes.rows.length > 0) {
                 leadId = leadRes.rows[0].id;
+                // Optional: Update lead name if pushName is available and lead name is generic?
             } else if (!fromMe) {
-                // Optional: Create lead if not exists?
-                // For now, just store with null lead_id or maybe try to auto-create? 
-                // Let's just log it.
+                // Determine owner from instance name (format: user_{id}_wa)
+                let assignedTo = null;
+                const parts = instance.split('_');
+                if (parts.length >= 3 && parts[0] === 'user') {
+                    assignedTo = parts[1];
+                }
+
+                console.log(`[Webhook] New sender ${number}. Creating lead for user ${assignedTo}...`);
+
+                // Create new lead
+                const newLead = await db.query(
+                    'INSERT INTO leads (name, phone, source, status, assigned_to, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id',
+                    [pushName || number, number, 'WhatsApp', 'New', assignedTo]
+                );
+                leadId = newLead.rows[0].id;
             }
 
             // Insert into DB
