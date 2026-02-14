@@ -219,6 +219,7 @@ const WhatsAppConnect = () => {
                 <div>
                     <h3 className="text-lg font-medium leading-6 text-gray-900">WhatsApp (Evolution API)</h3>
                     <p className="mt-1 max-w-2xl text-sm text-gray-500">Connect your WhatsApp number to manage leads and conversations.</p>
+                    {instanceName && <p className="text-xs text-gray-400 font-mono mt-1">ID: {instanceName}</p>}
                 </div>
                 <div className="ml-auto">
                     <label className="relative inline-flex items-center cursor-pointer">

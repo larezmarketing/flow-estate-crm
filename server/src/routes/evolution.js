@@ -57,10 +57,12 @@ router.post('/instance', checkConfig, async (req, res) => {
         }
 
         let instanceName = userResult.rows[0].whatsapp_instance_id;
+        console.log(`[Instance Check] User ${userId} has instance in DB: ${instanceName}`);
 
         // 2. If no instance, generate one
         if (!instanceName) {
             instanceName = `user_${userId}_wa`;
+            console.log(`[Instance Check] Generating NEW instance name: ${instanceName}`);
             // Save to DB
             await db.query('UPDATE users SET whatsapp_instance_id = $1 WHERE id = $2', [instanceName, userId]);
         }
