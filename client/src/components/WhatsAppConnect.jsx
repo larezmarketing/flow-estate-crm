@@ -282,13 +282,22 @@ const WhatsAppConnect = () => {
                                     <p className="text-sm text-gray-500">Your WhatsApp is active and ready.</p>
                                 </div>
                             </div>
-                            <button
-                                onClick={handleLogout}
-                                disabled={loading}
-                                className="text-red-600 hover:text-red-800 text-sm font-medium"
-                            >
-                                Disconnect
-                            </button>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => configureWebhook(instanceName)}
+                                    disabled={loading}
+                                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                >
+                                    Re-configure Webhook
+                                </button>
+                                <button
+                                    onClick={handleLogout}
+                                    disabled={loading}
+                                    className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                >
+                                    Disconnect
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

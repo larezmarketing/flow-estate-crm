@@ -195,19 +195,17 @@ router.post('/webhook/configure/:instanceName', checkConfig, async (req, res) =>
         const response = await axios.post(
             getEvolutionApiUrl(`/webhook/set/${instanceName}`),
             {
-                webhook: {
-                    enabled: true,
-                    url: url,
-                    byEvents: false, // Set to true to filter, false for all (usually)
-                    events: events || [
-                        "MESSAGES_UPSERT",
-                        "MESSAGES_UPDATE",
-                        "MESSAGES_DELETE",
-                        "SEND_MESSAGE",
-                        "CONNECTION_UPDATE",
-                        "GROUPS_UPSERT"
-                    ]
-                }
+                enabled: true,
+                url: url,
+                webhookByEvents: false, // Correct parameter name
+                events: events || [
+                    "MESSAGES_UPSERT",
+                    "MESSAGES_UPDATE",
+                    "MESSAGES_DELETE",
+                    "SEND_MESSAGE",
+                    "CONNECTION_UPDATE",
+                    "GROUPS_UPSERT"
+                ]
             },
             { headers: getHeaders() }
         );
