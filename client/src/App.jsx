@@ -15,6 +15,7 @@ import RoundRobin from './pages/RoundRobin';
 
 
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 function App() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -59,6 +60,7 @@ function App() {
 
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
+        <SpeedInsights />
       </Router>
     </GoogleOAuthProvider>
   );
