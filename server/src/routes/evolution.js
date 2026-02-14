@@ -180,7 +180,15 @@ router.post('/webhook/configure/:instanceName', checkConfig, async (req, res) =>
 
         // Default to localhost if not provided (for local dev with local Evolution API)
         // Ideally this should be a public URL or tunnel if Evolution API is remote.
-        const url = webhookUrl || `${process.env.SERVER_URL || 'http://localhost:5001'}/api/evolution/webhook`;
+        let defaultUrl = process.env.SERVER_URL;
+        if (!defaultUrl) {
+            // Try to construct from request
+            const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+            const host = req.headers['x-forwarded-host'] || req.get('host');
+            defaultUrl = `${protocol}://${host}`;
+        }
+
+        const url = webhookUrl || `${defaultUrl}/api/evolution/webhook`;
 
         console.log(`Configuring webhook for ${instanceName} to ${url}`);
 
@@ -262,7 +270,7 @@ router.post('/text/send', checkConfig, async (req, res) => {
 router.post('/webhook', async (req, res) => {
     try {
         const payload = req.body;
-        // console.log('Received webhook:', JSON.stringify(payload, null, 2));
+        console.log('Received webhook payload:', JSON.stringify(payload, null, 2));
 
         const { type, data, instance } = payload;
 
