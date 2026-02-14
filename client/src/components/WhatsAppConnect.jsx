@@ -89,6 +89,8 @@ const WhatsAppConnect = () => {
                 setStep(3);
                 setStatus('connected');
                 setLoading(false);
+                // Ensure webhook is configured
+                configureWebhook(myInstanceName);
                 return;
             }
 
@@ -100,6 +102,18 @@ const WhatsAppConnect = () => {
             setError('Error al conectar: ' + (err.response?.data?.error || err.message));
             setLoading(false);
             setStep(0); // Reset on error
+        }
+    };
+
+    const configureWebhook = async (name) => {
+        try {
+            await axios.post(`${import.meta.env.VITE_API_URL}/api/evolution/webhook/configure/${name}`, {
+                webhookUrl: `${import.meta.env.VITE_API_URL}/api/evolution/webhook`, // Explicitly correct URL
+                events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE"]
+            });
+            console.log('Webhook configured successfully');
+        } catch (err) {
+            console.error('Error configuring webhook:', err);
         }
     };
 
@@ -136,7 +150,11 @@ const WhatsAppConnect = () => {
                 setStatus('connected');
                 setStep(3);
                 setQrCode(null);
+                configureWebhook(name); // Ensure webhook is on
                 return true;
+            } else if (connectionStatus === 'connecting') {
+                setStatus('connecting');
+                setStep(2); // Keep checking
             }
         } catch (err) {
             // console.error('Error checking status', err);
