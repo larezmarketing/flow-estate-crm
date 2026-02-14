@@ -2,38 +2,16 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Send, MessageSquare, Phone, RefreshCw } from 'lucide-react'; // Added RefreshCw
 
-const WhatsAppChat = ({ leadPhone, instanceName, leadName, className = '' }) => {
+const WhatsAppChat = ({ leadPhone, instanceName, leadName, messages = [], onRefresh, className = '' }) => {
     const [message, setMessage] = useState('');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    const [messages, setMessages] = useState([]);
-
     // Sanitize phone number (remove +, spaces, dashes)
     const formatPhone = (phone) => {
         if (!phone) return '';
         return phone.replace(/\D/g, '');
-    };
-
-    useEffect(() => {
-        if (instanceName && leadPhone) {
-            fetchMessages();
-            const interval = setInterval(fetchMessages, 3000); // Poll every 3 seconds
-            return () => clearInterval(interval);
-        }
-    }, [instanceName, leadPhone]);
-
-    const fetchMessages = async () => {
-        try {
-            const formattedPhone = formatPhone(leadPhone);
-            if (!formattedPhone) return;
-
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/evolution/messages/${instanceName}/${formattedPhone}`);
-            setMessages(res.data);
-        } catch (err) {
-            console.error('Error fetching messages:', err);
-        }
     };
 
     const handleSendMessage = async (e) => {
@@ -60,7 +38,7 @@ const WhatsAppChat = ({ leadPhone, instanceName, leadName, className = '' }) => 
 
             setMessage('');
             setSuccess('Mensaje enviado');
-            fetchMessages(); // Refresh messages immediately
+            if (onRefresh) onRefresh(); // Refresh messages via parent
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             console.error(err);
@@ -82,15 +60,8 @@ const WhatsAppChat = ({ leadPhone, instanceName, leadName, className = '' }) => 
 
     return (
         <div className={`flex flex-col h-full bg-white ${className}`}>
-            {/* Header - now optional or simpler since specific to chat inside modal */}
-            {/* Removed internal header to fit modal design better, relying on Modal context */}
-
             {/* Messages Area */}
             <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-gray-50/50 flex flex-col">
-                {/* Actually standard column is better for chat usually unless using reverse mapping. 
-                    Let's use standard and scroll to bottom ideally. 
-                    For now, map normally. 
-                 */}
                 <div className="flex-1"></div> {/* Spacer to push messages down */}
 
                 {messages.map((msg, idx) => (

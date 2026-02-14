@@ -35,11 +35,35 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // Create lead
 router.post('/', authenticateToken, async (req, res) => {
     const { name, email, phone, source, status } = req.body;
+    let assignedTo = req.user.id; // Default to creator
 
     try {
+        // Check Round Robin Settings
+        const rrSettings = await db.query('SELECT * FROM round_robin_settings WHERE id = 1');
+        if (rrSettings.rows.length > 0) {
+            const settings = rrSettings.rows[0];
+            if (settings.is_active && settings.included_user_ids && settings.included_user_ids.length > 0) {
+                const { included_user_ids, last_assigned_user_id } = settings;
+
+                // Logic to find next user
+                let nextIndex = 0;
+                if (last_assigned_user_id) {
+                    const lastIndex = included_user_ids.indexOf(last_assigned_user_id);
+                    if (lastIndex !== -1 && lastIndex < included_user_ids.length - 1) {
+                        nextIndex = lastIndex + 1;
+                    }
+                }
+
+                assignedTo = included_user_ids[nextIndex];
+
+                // Update last assigned
+                await db.query('UPDATE round_robin_settings SET last_assigned_user_id = $1 WHERE id = 1', [assignedTo]);
+            }
+        }
+
         const result = await db.query(
             'INSERT INTO leads (name, email, phone, source, status, assigned_to) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-            [name, email, phone, source, status || 'New', req.user.id]
+            [name, email, phone, source, status || 'New', assignedTo]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {

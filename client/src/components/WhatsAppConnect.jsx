@@ -12,16 +12,29 @@ const WhatsAppConnect = () => {
 
     // Load instance info on mount
     useEffect(() => {
-        // We no longer rely on local storage for name, but we might have it from previous sessions
-        // Better: Ask backend "what is my instance?" or just try to connect with my UserID
+        const fetchProfileAndStatus = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
 
-        // Check if we have a user
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            const user = JSON.parse(userStr);
-            // We can optimistically try to check status if we think we might be connected
-            // But simpler is to let the user "Toggle On" to start the check if unknown.
-        }
+                // 1. Get User Profile to find instance ID
+                const profileRes = await axios.get(`${import.meta.env.VITE_API_URL}/api/users/profile`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                const userInstanceStr = profileRes.data.whatsapp_instance_id;
+
+                if (userInstanceStr) {
+                    setInstanceName(userInstanceStr);
+                    // 2. Check status immediately
+                    await checkStatus(userInstanceStr);
+                }
+            } catch (err) {
+                console.error("Error fetching profile for WhatsApp status:", err);
+            }
+        };
+
+        fetchProfileAndStatus();
     }, []);
 
     const getUserId = () => {
@@ -47,10 +60,18 @@ const WhatsAppConnect = () => {
 
         try {
             // 1. Get or Create Instance for this User
-            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/evolution/instance`, {
-                userId: userId,
-                description: 'Flow Estate Agent Connection'
-            });
+            // Note: We use the token for auth now (via headers in axios setup or manual), 
+            // but this endpoint expects body for now.
+            const token = localStorage.getItem('token');
+
+            const response = await axios.post(
+                `${import.meta.env.VITE_API_URL}/api/evolution/instance`,
+                {
+                    userId: userId,
+                    description: 'Flow Estate Agent Connection'
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
 
             const myInstanceName = response.data.instanceName || response.data.instance?.instanceName;
 

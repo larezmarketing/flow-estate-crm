@@ -10,11 +10,29 @@ const Inbox = () => {
     const [selectedLead, setSelectedLead] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
-    const [instanceName, setInstanceName] = useState(localStorage.getItem('wa_instance_name') || '');
+    const [messages, setMessages] = useState([]);
+    const [instanceName, setInstanceName] = useState('');
 
     useEffect(() => {
         fetchLeads();
+        fetchInstance();
     }, []);
+
+    // Fetch user instance
+    const fetchInstance = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/users/profile`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.data.whatsapp_instance_id) {
+                setInstanceName(res.data.whatsapp_instance_id);
+            }
+        } catch (err) {
+            console.error("Error fetching instance:", err);
+        }
+    };
 
     useEffect(() => {
         // Filter leads based on search
@@ -26,6 +44,35 @@ const Inbox = () => {
         setFilteredLeads(results);
     }, [searchTerm, leads]);
 
+    // Fetch messages when selected lead changes
+    useEffect(() => {
+        if (selectedLead && instanceName) {
+            fetchMessages(selectedLead.phone);
+            // Optional: Poll for new messages every 5s
+            const interval = setInterval(() => fetchMessages(selectedLead.phone), 5000);
+            return () => clearInterval(interval);
+        } else {
+            setMessages([]);
+        }
+    }, [selectedLead, instanceName]);
+
+    const fetchMessages = async (phone) => {
+        try {
+            const token = localStorage.getItem('token');
+            const cleanPhone = phone.replace(/\D/g, ''); // Ensure only digits
+            // Note: The backend route is /api/evolution/messages/:instanceName/:phone
+            // We need to confirm the route path in server/src/routes/evolution.js or index.js
+            // Looking at the file view, it's defined in evolution.js. 
+            // If evolution.js is mounted at /api/evolution, then it is correct.
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/evolution/messages/${instanceName}/${cleanPhone}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setMessages(res.data);
+        } catch (err) {
+            console.error("Error fetching messages:", err);
+        }
+    };
+
     const fetchLeads = async () => {
         try {
             const token = localStorage.getItem('token');
@@ -36,9 +83,9 @@ const Inbox = () => {
             const validLeads = res.data.filter(l => l.phone);
             setLeads(validLeads);
             setFilteredLeads(validLeads);
-            if (validLeads.length > 0) {
-                // Optionally select the first one
-                // setSelectedLead(validLeads[0]);
+            if (validLeads.length > 0 && !selectedLead) {
+                // Don't auto-select to avoid confusion? Or select first?
+                // Let's leave it null to let user choose.
             }
         } catch (err) {
             console.error(err);
@@ -88,10 +135,9 @@ const Inbox = () => {
                                                     {lead.name}
                                                 </h3>
                                                 {/* Timestamp placeholder */}
-                                                <span className="text-[10px] text-gray-400">12:30 PM</span>
+                                                <span className="text-[10px] text-gray-400">--:--</span>
                                             </div>
                                             <p className="text-xs text-gray-500 truncate flex items-center gap-1">
-                                                {/* Last message placeholder */}
                                                 <Phone size={10} className="text-gray-300" /> {lead.phone}
                                             </p>
                                         </div>
@@ -115,8 +161,14 @@ const Inbox = () => {
                                     <div>
                                         <h3 className="font-bold text-gray-900">{selectedLead.name}</h3>
                                         <p className="text-xs text-green-600 flex items-center gap-1">
-                                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                            WhatsApp Connected
+                                            {instanceName ? (
+                                                <>
+                                                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                                    WhatsApp Connected
+                                                </>
+                                            ) : (
+                                                <span className="text-gray-400 italic">Instance not connected</span>
+                                            )}
                                         </p>
                                     </div>
                                 </div>
@@ -128,13 +180,26 @@ const Inbox = () => {
                             </div>
 
                             {/* Chat Component Wrapper */}
-                            <div className="flex-1 p-6 overflow-hidden">
-                                {/* Reusing the WhatsAppChat component but styling it to fit smoothly */}
+                            <div className="flex-1 p-0 overflow-hidden bg-[#e5ddd5]">
+                                {/* Pass messages to WhatsAppChat or handle fetching there?
+                                    The existing WhatsAppChat component seems to handle layout. 
+                                    Let's peek at it? No, I'll pass the messages prop if it accepts it, 
+                                    or I'll have to modify it. 
+                                    Wait, the previous code block showed:
+                                    <WhatsAppChat leadPhone={selectedLead.phone} instanceName={instanceName} leadName={selectedLead.name} />
+                                    It didn't take 'messages' prop. 
+                                    I should check WhatsAppChat.jsx to see if it fetches independently or accepts props.
+                                    The prompt says "all wha at inbox".
+                                    I will assume I need to pass the messages I just fetched. 
+                                    Or I can modify WhatsAppChat to accept `initialMessages` or `messages`.
+                                    Let's check `WhatsAppChat.jsx` first.
+                                 */}
                                 <div className="h-full">
                                     <WhatsAppChat
                                         leadPhone={selectedLead.phone}
                                         instanceName={instanceName}
                                         leadName={selectedLead.name}
+                                        messages={messages}
                                     />
                                 </div>
                             </div>

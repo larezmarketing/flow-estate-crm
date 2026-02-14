@@ -30,6 +30,7 @@ app.use('/api/n8n', require('./routes/n8n'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/facebook', require('./routes/auth_facebook'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/round-robin', require('./routes/round-robin'));
 
 const db = require('./db');
 
