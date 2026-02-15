@@ -248,20 +248,35 @@ const FacebookConnect = ({ initialData, onSave }) => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Page</label>
-                                <select
-                                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                                    value={selectedPage}
-                                    onChange={handlePageChange}
-                                    disabled={loading}
-                                >
-                                    <option value="">Select a Page</option>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Page</label>
+                                <div className="space-y-2">
                                     {pages.map((page) => (
-                                        <option key={page.id} value={page.id}>
-                                            {page.name}
-                                        </option>
+                                        <div
+                                            key={page.id}
+                                            onClick={() => handlePageChange({ target: { value: page.id } })}
+                                            className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
+                                                selectedPage === page.id
+                                                    ? 'border-blue-500 bg-blue-50'
+                                                    : 'border-gray-300 hover:border-blue-300 hover:bg-gray-50'
+                                            } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        >
+                                            {page.picture?.data?.url && (
+                                                <img
+                                                    src={page.picture.data.url}
+                                                    alt={page.name}
+                                                    className="w-10 h-10 rounded-full"
+                                                />
+                                            )}
+                                            <div className="flex-1">
+                                                <p className="text-sm font-medium text-gray-900">{page.name}</p>
+                                                <p className="text-xs text-gray-500">ID: {page.id}</p>
+                                            </div>
+                                            {selectedPage === page.id && (
+                                                <CheckCircle className="w-5 h-5 text-blue-500" />
+                                            )}
+                                        </div>
                                     ))}
-                                </select>
+                                </div>
                             </div>
 
                             {selectedPage && (

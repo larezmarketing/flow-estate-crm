@@ -127,7 +127,7 @@ router.get('/assets', async (req, res) => {
         const [businessesRes, adAccountsRes, pagesRes] = await Promise.all([
             axios.get('https://graph.facebook.com/v19.0/me/businesses', { params: { access_token: accessToken } }).catch(err => ({ data: { data: [] } })), // Optional perm might fail
             axios.get('https://graph.facebook.com/v19.0/me/adaccounts', { params: { access_token: accessToken, fields: 'id,name,account_id' } }).catch(err => ({ data: { data: [] } })),
-            axios.get('https://graph.facebook.com/v19.0/me/accounts', { params: { access_token: accessToken, fields: 'id,name,access_token' } })
+            axios.get('https://graph.facebook.com/v19.0/me/accounts', { params: { access_token: accessToken, fields: 'id,name,access_token,picture' } })
         ]);
         console.log('Successfully fetched assets.');
 
@@ -156,15 +156,19 @@ router.get('/forms/:pageId', async (req, res) => {
     try {
         console.log(`Fetching forms for page ${pageId}...`);
         const formsResponse = await axios.get(`https://graph.facebook.com/v19.0/${pageId}/leadgen_forms`, {
-            params: { access_token: accessToken },
+            params: { 
+                access_token: accessToken,
+                fields: 'id,name,status,leads_count,created_time'
+            },
         });
-        console.log('Successfully fetched forms.');
+        console.log('Successfully fetched forms:', formsResponse.data);
 
         res.json(formsResponse.data.data || []);
 
     } catch (e) {
         logError('Fetching Forms', e);
-        res.status(500).send('An internal server error occurred while fetching forms.');
+        // Return empty array instead of error to allow continuing without forms
+        res.json([]);
     }
 });
 
