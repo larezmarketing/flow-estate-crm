@@ -11,8 +11,9 @@ const authenticateToken = require('../middleware/auth');
 
 // 1. Initiate Login
 router.get('/login', (req, res) => {
-    const appId = process.env.FACEBOOK_APP_ID;
-    const redirectUri = `${process.env.BASE_URL || 'http://localhost:5001'}/api/facebook/callback`;
+    const appId = process.env.FACEBOOK_APP_ID || '1213456980328065';
+    const baseUrl = process.env.BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://flow-estate-crm.vercel.app' : 'http://localhost:5001');
+    const redirectUri = `${baseUrl}/api/facebook/callback`;
     const scope = 'pages_show_list,leads_retrieval,ads_management,pages_read_engagement';
 
     // Pass user token in state if needed to link account later, or handle purely on frontend redirect
@@ -25,9 +26,10 @@ router.get('/login', (req, res) => {
 // 2. Callback from Facebook
 router.get('/callback', async (req, res) => {
     const { code } = req.query;
-    const appId = process.env.FACEBOOK_APP_ID;
-    const appSecret = process.env.FACEBOOK_APP_SECRET;
-    const redirectUri = `${process.env.BASE_URL || 'http://localhost:5001'}/api/facebook/callback`;
+    const appId = process.env.FACEBOOK_APP_ID || '1213456980328065';
+    const appSecret = process.env.FACEBOOK_APP_SECRET || 'eee50fcf9c941ee30983cec24374cabd';
+    const baseUrl = process.env.BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://flow-estate-crm.vercel.app' : 'http://localhost:5001');
+    const redirectUri = `${baseUrl}/api/facebook/callback`;
 
     try {
         // Exchange code for User Access Token
