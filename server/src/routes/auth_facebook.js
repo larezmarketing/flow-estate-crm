@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const db = require('../db');
 
 // Helper function to log errors
 const logError = (step, error) => {
@@ -172,23 +173,61 @@ router.get('/forms/:pageId', async (req, res) => {
     }
 });
 
+// 4. Save a new connection
+router.post('/connections', async (req, res) => {
+    try {
+        const {
+            name,
+            accessToken,
+            businessId,
+            businessName,
+            adAccountId,
+            adAccountName,
+            pageId,
+            pageName,
+            pagePictureUrl,
+            formId,
+            formName
+        } = req.body;
+
+        // TODO: Get user_id from authentication session/token
+        // For now, use a placeholder or require it in the request
+        const userId = req.body.userId || null;
+
+        const result = await db.query(
+            `INSERT INTO facebook_connections (
+                user_id, name, access_token, business_id, business_name,
+                ad_account_id, ad_account_name, page_id, page_name, page_picture_url,
+                form_id, form_name, status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            RETURNING id, name, business_id, business_name, ad_account_id, ad_account_name,
+                      page_id, page_name, page_picture_url, form_id, form_name, status, created_at`,
+            [
+                userId, name, accessToken, businessId, businessName,
+                adAccountId, adAccountName, pageId, pageName, pagePictureUrl,
+                formId, formName, 'active'
+            ]
+        );
+
+        res.json(result.rows[0]);
+    } catch (err) {
+        logError('Saving Connection', err);
+        res.status(500).json({ error: 'Failed to save connection' });
+    }
+});
+
 // 5. Get all connections for the current user
 router.get('/connections', async (req, res) => {
     try {
-        // TODO: Get connections from database filtered by user
-        // For now, return mock data
-        const connections = [
-            {
-                id: '1',
-                name: 'Growth Estate - Main',
-                page_id: '123456',
-                page_name: 'Growth Estate',
-                form_id: 'all',
-                status: 'active',
-                created_at: new Date().toISOString()
-            }
-        ];
-        res.json(connections);
+        // TODO: Add proper authentication and get user_id from session/token
+        // For now, get all connections
+        const result = await db.query(
+            `SELECT id, name, business_id, business_name, ad_account_id, ad_account_name,
+                    page_id, page_name, page_picture_url, form_id, form_name, status, created_at
+             FROM facebook_connections
+             ORDER BY created_at DESC`
+        );
+        res.json(result.rows);
     } catch (err) {
         logError('Fetching Connections', err);
         res.status(500).json({ error: 'Failed to fetch connections' });
@@ -199,8 +238,8 @@ router.get('/connections', async (req, res) => {
 router.delete('/connections/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        // TODO: Delete connection from database
-        console.log(`Deleting connection ${id}`);
+        await db.query('DELETE FROM facebook_connections WHERE id = $1', [id]);
+        console.log(`Deleted connection ${id}`);
         res.json({ success: true });
     } catch (err) {
         logError('Deleting Connection', err);

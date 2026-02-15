@@ -160,6 +160,34 @@ const FacebookConnect = ({ initialData, onSave }) => {
         setLoading(true);
         setError(null);
         try {
+            // Find the selected page details
+            const page = pages.find(p => p.id === selectedPage);
+            const business = businesses.find(b => b.id === selectedBusiness);
+            const adAccount = adAccounts.find(a => a.id === selectedAdAccount);
+            const form = forms.find(f => f.id === selectedForm);
+
+            // Prepare connection data
+            const connectionData = {
+                name: page?.name || 'Unnamed Connection',
+                accessToken: accessToken,
+                businessId: selectedBusiness,
+                businessName: business?.name,
+                adAccountId: selectedAdAccount,
+                adAccountName: adAccount?.name,
+                pageId: selectedPage,
+                pageName: page?.name,
+                pagePictureUrl: page?.picture?.data?.url,
+                formId: selectedForm,
+                formName: form?.name
+            };
+
+            // Save to database
+            const token = localStorage.getItem('token');
+            await axios.post(`${API_URL}/api/facebook/connections`, connectionData, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            // Also save to integrations (legacy)
             const config = {
                 access_token: accessToken,
                 business_id: selectedBusiness,
@@ -167,8 +195,8 @@ const FacebookConnect = ({ initialData, onSave }) => {
                 page_id: selectedPage,
                 form_id: selectedForm || 'all',
             };
-
             await onSave('meta', config, 'active');
+
             setSuccess(true);
             setView('connected');
             fetchConnections();
