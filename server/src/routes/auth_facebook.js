@@ -19,8 +19,9 @@ const logError = (step, error) => {
 // 1. Redirect to Facebook for user consent
 router.get('/', (req, res) => {
     // Use fallbacks for safety if .env not loaded perfectly in all contexts
-    const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '1213456980328065';
-    const FACEBOOK_REDIRECT_URI = process.env.FACEBOOK_REDIRECT_URI || 'https://flow-estate-crm.vercel.app/api/facebook/callback';
+    // Use process.env variables directly
+    const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID;
+    const FACEBOOK_REDIRECT_URI = process.env.FACEBOOK_REDIRECT_URI;
 
     if (!FACEBOOK_APP_ID || !FACEBOOK_REDIRECT_URI) {
         return res.status(500).send('Facebook App ID or Redirect URI is not configured on the server.');
@@ -57,9 +58,10 @@ router.get('/callback', async (req, res) => {
 
     console.log('Received authorization code from Facebook.');
 
-    const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '1213456980328065';
-    const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET || 'eee50fcf9c941ee30983cec24374cabd';
-    const FACEBOOK_REDIRECT_URI = process.env.FACEBOOK_REDIRECT_URI || 'https://flow-estate-crm.vercel.app/api/facebook/callback';
+    // Use process.env variables directly
+    const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID;
+    const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET;
+    const FACEBOOK_REDIRECT_URI = process.env.FACEBOOK_REDIRECT_URI;
 
     try {
         // Exchange authorization code for an access token
@@ -81,24 +83,24 @@ router.get('/callback', async (req, res) => {
 
         // Send the token to the frontend using postMessage and close the popup
         const responseHtml = `
-      <html>
-        <head>
-          <title>Authentication Success</title>
-        </head>
-        <body>
-          <script>
-            if (window.opener) {
-              console.log('Sending token to parent window...');
-              window.opener.postMessage({ type: 'facebook-token', token: '${access_token}' }, '*');
-              window.close();
-            } else {
-              document.body.innerHTML = 'Authentication successful. You can close this window.';
-            }
-          </script>
-          <p>Authentication successful. Please wait...</p>
-        </body>
-      </html>
-    `;
+        <html>
+            <head>
+            <title>Authentication Success</title>
+            </head>
+            <body>
+            <script>
+                if (window.opener) {
+                console.log('Sending token to parent window...');
+                window.opener.postMessage({ type: 'facebook-token', token: '${access_token}' }, '*');
+                window.close();
+                } else {
+                document.body.innerHTML = 'Authentication successful. You can close this window.';
+                }
+            </script>
+            <p>Authentication successful. Please wait...</p>
+            </body>
+        </html>
+        `;
         res.send(responseHtml);
 
     } catch (e) {
