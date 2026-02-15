@@ -1,122 +1,157 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Facebook, CheckCircle, RefreshCw, AlertCircle } from 'lucide-react';
+import { RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
 const FacebookConnect = ({ initialData, onSave }) => {
-    const [step, setStep] = useState(0); // 0: Disconnected, 1: Connecting (Auth), 2: Selecting Assets, 3: Connected
-    const [userAccessToken, setUserAccessToken] = useState('');
+    const [accessToken, setAccessToken] = useState(null);
+    const [businesses, setBusinesses] = useState([]);
+    const [adAccounts, setAdAccounts] = useState([]);
     const [pages, setPages] = useState([]);
     const [forms, setForms] = useState([]);
 
-    // Selection State
-    const [selectedPageId, setSelectedPageId] = useState('');
-    const [selectedFormId, setSelectedFormId] = useState('');
+    const [selectedBusiness, setSelectedBusiness] = useState('');
+    const [selectedAdAccount, setSelectedAdAccount] = useState('');
+    const [selectedPage, setSelectedPage] = useState('');
+    const [selectedForm, setSelectedForm] = useState('');
 
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(false);
 
+    // Initialize from props
     useEffect(() => {
-        // Check for token in URL handling redirect back from backend
-        const searchParams = new URLSearchParams(window.location.search);
-        const urlToken = searchParams.get('fb_token');
-
-        if (urlToken) {
-            setUserAccessToken(urlToken);
-            setStep(2); // Move to Asset Selection
-            fetchPages(urlToken);
-
-            // Clean URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-        } else if (initialData && initialData.status === 'active') {
-            setStep(3); // Already connected
-            setSelectedPageId(initialData.config?.page_id);
-            setSelectedFormId(initialData.config?.form_id);
+        if (initialData && initialData.status === 'active') {
+            setSuccess(true); // Already connected
+            // Optionally populate state if we had stored it
+            if (initialData.config) {
+                setAccessToken(initialData.config.access_token); // If we decide to return this
+                setSelectedPage(initialData.config.page_id);
+                setSelectedForm(initialData.config.form_id);
+            }
         }
     }, [initialData]);
 
-    const handleLogin = async () => {
-        setLoading(true);
-        try {
-            // Get Auth URL from backend
-            const res = await axios.get(`${API_URL}/api/facebook/login`);
-            window.location.href = res.data.url; // Redirect to Facebook
-        } catch (err) {
-            setError('Failed to initiate Facebook Login');
-            setLoading(false);
+    // Listen for the token from the popup
+    useEffect(() => {
+        const handleMessage = (event) => {
+            // Security check: ensure origin matches if possible, or trust the type
+            if (event.data?.type === 'facebook-token') {
+                console.log('Received token from popup');
+                setAccessToken(event.data.token);
+                setError(null);
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, []);
+
+    // Fetch assets when token is received
+    useEffect(() => {
+        if (accessToken) {
+            fetchAssets();
+        }
+    }, [accessToken]);
+
+    const handleConnect = () => {
+        console.log('Opening Facebook login popup...');
+        // Use API_URL for the backend route
+        const popup = window.open(`${API_URL}/api/facebook`, 'facebook-login', 'width=600,height=600');
+        if (!popup) {
+            setError('Popup was blocked. Please allow popups for this site.');
         }
     };
 
-    const fetchPages = async (token) => {
+    const fetchAssets = async () => {
         setLoading(true);
-        setError('');
+        setError(null);
         try {
-            // Backend proxy to avoid CORS and exposing tokens
-            const tokenToUse = token || userAccessToken;
-            const res = await axios.get(`${API_URL}/api/facebook/pages`, {
-                params: { user_access_token: tokenToUse },
-                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            console.log('Fetching assets...');
+            const response = await axios.get(`${API_URL}/api/facebook/assets`, {
+                headers: {
+                    // Provided code uses 'Authorization: Bearer FB_TOKEN'
+                    // We must match what the backend expects. 
+                    // The v2 backend expects `req.headers.authorization` to be the FB token.
+                    Authorization: `Bearer ${accessToken}`,
+                },
             });
-            setPages(res.data);
+
+            setBusinesses(response.data.businesses || []);
+            setAdAccounts(response.data.adAccounts || []);
+            setPages(response.data.pages || []);
+            console.log('Assets fetched successfully');
         } catch (err) {
-            setError('Failed to fetch Facebook Pages');
+            console.error('Error fetching assets:', err);
+            setError('Failed to fetch your Facebook assets. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
-    const fetchForms = async (pageId, pageAccessToken) => {
-        setLoading(true);
-        try {
-            const res = await axios.get(`${API_URL}/api/facebook/forms`, {
-                params: { page_id: pageId, page_access_token: pageAccessToken },
-                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-            });
-            setForms(res.data);
-        } catch (err) {
-            // If no forms or error, just show empty list
-            setForms([]);
-            console.error('Error getting forms', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handlePageChange = (e) => {
+    const handlePageChange = async (e) => {
         const pageId = e.target.value;
-        setSelectedPageId(pageId);
+        setSelectedPage(pageId);
+        setForms([]);
+        setSelectedForm('');
 
-        // Find access token for this page
-        const page = pages.find(p => p.id === pageId);
-        if (page) {
-            fetchForms(pageId, page.access_token);
+        if (pageId) {
+            setLoading(true);
+            setError(null);
+            try {
+                console.log(`Fetching forms for page ${pageId}...`);
+                const response = await axios.get(`${API_URL}/api/facebook/forms/${pageId}`, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                });
+
+                setForms(response.data || []);
+                console.log('Forms fetched successfully');
+            } catch (err) {
+                console.error('Error fetching forms:', err);
+                setError('Failed to fetch forms for this page. Please try again.');
+            } finally {
+                setLoading(false);
+            }
         }
     };
 
-    const handleSaveConfig = async () => {
-        if (!selectedPageId) {
-            setError('Please select a Facebook Page');
+    const handleSave = async () => {
+        if (!selectedPage) { // Form can be optional or 'all'
+            setError('Please select a page.');
             return;
         }
 
         setLoading(true);
-
-        // Find selected page details
-        const page = pages.find(p => p.id === selectedPageId);
-
+        setError(null);
         try {
+            console.log('Saving configuration...');
+
+            const selectedPageObj = pages.find(p => p.id === selectedPage);
+
             const config = {
-                page_id: selectedPageId,
-                page_name: page?.name,
-                page_access_token: page?.access_token, // Critical for webhooks
-                form_id: selectedFormId
+                business_id: selectedBusiness,
+                ad_account_id: selectedAdAccount,
+                page_id: selectedPage,
+                page_name: selectedPageObj?.name,
+                form_id: selectedForm,
+                access_token: accessToken, // Important: Page Access Token usually needed, but user said 'page_access_token' in DB logic. 
+                // The fetchAssets endpoint returned 'access_token' for each page in 'v19.0/me/accounts'. 
+                // So 'selectedPageObj' should have 'access_token'.
+                page_access_token: selectedPageObj?.access_token
             };
 
+            // Call parent onSave which saves to DB
             await onSave('meta', config, 'active');
-            setStep(3);
+
+            setSuccess(true);
+            console.log('Configuration saved successfully');
+
         } catch (err) {
-            setError('Failed to save configuration');
+            console.error('Error saving configuration:', err);
+            setError('Failed to save configuration. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -124,20 +159,36 @@ const FacebookConnect = ({ initialData, onSave }) => {
 
     const handleDisconnect = async () => {
         await onSave('meta', {}, 'inactive');
-        setStep(0);
-        setUserAccessToken('');
+        setSuccess(false);
+        setAccessToken(null);
     };
+
+    if (success) {
+        return (
+            <div className="bg-white p-4 rounded-lg border border-blue-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="bg-blue-100 p-2 rounded-full">
+                        <CheckCircle className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-medium text-gray-900">Connected</h4>
+                        <p className="text-sm text-gray-500">Facebook Leads Integration Active <span className="text-xs text-gray-400">v2.0</span></p>
+                    </div>
+                </div>
+                <button
+                    onClick={handleDisconnect}
+                    className="text-red-600 hover:text-red-800 text-sm font-medium"
+                >
+                    Disconnect
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-white shadow sm:rounded-lg overflow-hidden border border-gray-200">
             <div className="px-4 py-5 sm:px-6 flex items-center gap-3 border-b border-gray-200">
-                <div className={`p-2 rounded-lg ${step > 0 ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                    <Facebook className={`h-6 w-6 ${step > 0 ? 'text-blue-600' : 'text-gray-400'}`} />
-                </div>
-                <div>
-                    <h3 className="text-lg font-medium leading-6 text-gray-900">Meta Ads (Facebook/Instagram) <span className="text-xs text-gray-400">v1.1</span></h3>
-                    <p className="mt-1 max-w-2xl text-sm text-gray-500">Connect to receive leads.</p>
-                </div>
+                <h3 className="text-lg font-medium leading-6 text-gray-900">Meta Ads (Facebook/Instagram) <span className="text-xs text-gray-400">v2.0</span></h3>
             </div>
 
             <div className="px-4 py-5 sm:p-6 bg-gray-50/50">
@@ -148,83 +199,100 @@ const FacebookConnect = ({ initialData, onSave }) => {
                     </div>
                 )}
 
-                {step === 0 && (
+                {!accessToken ? (
                     <div className="text-center py-6">
+                        <p className="mb-4 text-sm text-gray-500">Connect your Facebook account to start receiving leads.</p>
                         <button
-                            onClick={handleLogin}
+                            onClick={handleConnect}
                             disabled={loading}
                             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#1877F2] hover:bg-[#166fe5] focus:outline-none"
                         >
-                            {loading ? 'Connecting...' : 'Connect to Facebook'}
+                            {loading ? 'Connecting...' : 'Connect with Facebook'}
                         </button>
                     </div>
-                )}
-
-                {step === 2 && (
+                ) : (
                     <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Select Facebook Page</label>
-                            <select
-                                value={selectedPageId}
-                                onChange={handlePageChange}
-                                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                            >
-                                <option value="">Select a Page...</option>
-                                {pages.map(page => (
-                                    <option key={page.id} value={page.id}>{page.name}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {selectedPageId && (
+                        <div className="grid grid-cols-1 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Select Lead Form (Optional)</label>
+                                <label className="block text-sm font-medium text-gray-700">Business</label>
                                 <select
-                                    value={selectedFormId}
-                                    onChange={(e) => setSelectedFormId(e.target.value)}
                                     className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                                    value={selectedBusiness}
+                                    onChange={(e) => setSelectedBusiness(e.target.value)}
+                                    disabled={loading}
                                 >
-                                    <option value="">All Forms</option>
-                                    {forms.map(form => (
-                                        <option key={form.id} value={form.id}>{form.name} ({form.status})</option>
+                                    <option value="">Select a Business (Optional)</option>
+                                    {businesses.map((business) => (
+                                        <option key={business.id} value={business.id}>
+                                            {business.name}
+                                        </option>
                                     ))}
                                 </select>
-                                <p className="text-xs text-gray-500 mt-1">If "All Forms" is selected, we will capture leads from any form on this page.</p>
                             </div>
-                        )}
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Ad Account</label>
+                                <select
+                                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                                    value={selectedAdAccount}
+                                    onChange={(e) => setSelectedAdAccount(e.target.value)}
+                                    disabled={loading}
+                                >
+                                    <option value="">Select an Ad Account (Optional)</option>
+                                    {adAccounts.map((adAccount) => (
+                                        <option key={adAccount.id} value={adAccount.id}>
+                                            {adAccount.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Page</label>
+                                <select
+                                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                                    value={selectedPage}
+                                    onChange={handlePageChange}
+                                    disabled={loading}
+                                >
+                                    <option value="">Select a Page</option>
+                                    {pages.map((page) => (
+                                        <option key={page.id} value={page.id}>
+                                            {page.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {selectedPage && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Form</label>
+                                    <select
+                                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                                        value={selectedForm}
+                                        onChange={(e) => setSelectedForm(e.target.value)}
+                                        disabled={loading || forms.length === 0}
+                                    >
+                                        <option value="">Select a Form (Optional)</option>
+                                        {forms.map((form) => (
+                                            <option key={form.id} value={form.id}>
+                                                {form.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
 
                         <div className="flex justify-end pt-4">
                             <button
-                                onClick={handleSaveConfig}
-                                disabled={loading || !selectedPageId}
+                                onClick={handleSave}
+                                disabled={loading || !selectedPage}
                                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none disabled:bg-gray-300"
                             >
                                 {loading ? 'Saving...' : 'Save Configuration'}
                             </button>
                         </div>
-                    </div>
-                )}
-
-                {step === 3 && (
-                    <div className="bg-white p-4 rounded-lg border border-blue-100 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-blue-100 p-2 rounded-full">
-                                <CheckCircle className="h-6 w-6 text-blue-600" />
-                            </div>
-                            <div>
-                                <h4 className="text-sm font-medium text-gray-900">Connected</h4>
-                                <p className="text-sm text-gray-500">
-                                    Page ID: {initialData?.config?.page_id || selectedPageId} <br />
-                                    {initialData?.config?.page_name && <span>Page: {initialData.config.page_name}</span>}
-                                </p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={handleDisconnect}
-                            className="text-red-600 hover:text-red-800 text-sm font-medium"
-                        >
-                            Disconnect
-                        </button>
                     </div>
                 )}
             </div>

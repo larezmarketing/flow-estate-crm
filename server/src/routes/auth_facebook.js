@@ -1,137 +1,165 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const db = require('../db');
-const authenticateToken = require('../middleware/auth');
 
-// Environment variables should be set:
-// FACEBOOK_APP_ID
-// FACEBOOK_APP_SECRET
-// BASE_URL (e.g. http://localhost:5001)
+// Helper function to log errors
+const logError = (step, error) => {
+    console.error(`Error during step: ${step}`);
+    if (error.response) {
+        console.error('Data:', error.response.data);
+        console.error('Status:', error.response.status);
+        console.error('Headers:', error.response.headers);
+    } else if (error.request) {
+        console.error('Request:', error.request);
+    } else {
+        console.error('Error Message:', error.message);
+    }
+};
 
-// 1. Initiate Login
-router.get('/login', (req, res) => {
-    const appId = process.env.FACEBOOK_APP_ID || '1213456980328065';
-    const baseUrl = process.env.BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://flow-estate-crm.vercel.app' : 'http://localhost:5001');
-    const redirectUri = `${baseUrl}/api/facebook/callback`;
-    const scope = 'pages_show_list,leads_retrieval,ads_management,pages_read_engagement';
+// 1. Redirect to Facebook for user consent
+router.get('/', (req, res) => {
+    // Use fallbacks for safety if .env not loaded perfectly in all contexts
+    const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '1213456980328065';
+    const FACEBOOK_REDIRECT_URI = process.env.FACEBOOK_REDIRECT_URI || 'https://flow-estate-crm.vercel.app/api/facebook/callback';
 
-    // Pass user token in state if needed to link account later, or handle purely on frontend redirect
-    // For simplicity, we just redirect. The frontend can also initiate this directly.
-    const url = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
+    if (!FACEBOOK_APP_ID || !FACEBOOK_REDIRECT_URI) {
+        return res.status(500).send('Facebook App ID or Redirect URI is not configured on the server.');
+    }
 
-    res.json({ url });
+    const scopes = [
+        'leads_retrieval',
+        'pages_show_list',
+        'pages_read_engagement',
+        'pages_manage_metadata',
+        'ads_management', // Crucial for forms
+        'ads_read',
+        'business_management'
+    ];
+
+    const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${FACEBOOK_APP_ID}&redirect_uri=${FACEBOOK_REDIRECT_URI}&scope=${scopes.join(',')}&response_type=code`;
+
+    console.log('Redirecting to Facebook for authentication...');
+    res.redirect(authUrl);
 });
 
-// 2. Callback from Facebook
+// 2. Handle the callback from Facebook
 router.get('/callback', async (req, res) => {
-    const { code } = req.query;
-    // HARDCODED FALLBACKS FOR DEBUGGING PRODUCTION
-    const appId = process.env.FACEBOOK_APP_ID || '1213456980328065';
-    const appSecret = process.env.FACEBOOK_APP_SECRET || 'eee50fcf9c941ee30983cec24374cabd';
-    const baseUrl = process.env.BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://flow-estate-crm.vercel.app' : 'http://localhost:5001');
-    const redirectUri = `${baseUrl}/api/facebook/callback`;
+    const { code, error } = req.query;
+
+    if (error) {
+        console.error('Facebook callback error:', error);
+        return res.status(400).send(`Error from Facebook: ${error}`);
+    }
+
+    if (!code) {
+        return res.status(400).send('Error: No authorization code provided by Facebook.');
+    }
+
+    console.log('Received authorization code from Facebook.');
+
+    const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '1213456980328065';
+    const FACEBOOK_APP_SECRET = process.env.FACEBOOK_APP_SECRET || 'eee50fcf9c941ee30983cec24374cabd';
+    const FACEBOOK_REDIRECT_URI = process.env.FACEBOOK_REDIRECT_URI || 'https://flow-estate-crm.vercel.app/api/facebook/callback';
 
     try {
-        // Exchange code for User Access Token
-        const tokenRes = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
+        // Exchange authorization code for an access token
+        console.log('Exchanging code for access token...');
+        const tokenResponse = await axios.get('https://graph.facebook.com/v19.0/oauth/access_token', {
             params: {
-                client_id: appId,
-                client_secret: appSecret,
-                redirect_uri: redirectUri,
-                code: code
-            }
+                client_id: FACEBOOK_APP_ID,
+                client_secret: FACEBOOK_APP_SECRET,
+                redirect_uri: FACEBOOK_REDIRECT_URI,
+                code,
+            },
+            timeout: 10000
         });
 
-        const userAccessToken = tokenRes.data.access_token;
+        const { access_token } = tokenResponse.data;
+        console.log('Successfully received access token.');
 
-        // Optionally: Get verification of who this user is
-        const meRes = await axios.get(`https://graph.facebook.com/me?access_token=${userAccessToken}`);
-        const fbUserId = meRes.data.id;
+        // IMPORTANT: Here you should save the access_token to your database, associated with the user.
 
-        // 5. Redirect back to frontend
-        const isProduction = process.env.NODE_ENV === 'production';
-        const frontendUrl = process.env.FRONTEND_URL || (isProduction ? 'https://flow-estate-crm.vercel.app' : 'http://localhost:5173');
-        const finalUrl = `${frontendUrl}/integrations?fb_token=${userAccessToken}&fb_user_id=${fbUserId}`;
+        // Send the token to the frontend using postMessage and close the popup
+        const responseHtml = `
+      <html>
+        <head>
+          <title>Authentication Success</title>
+        </head>
+        <body>
+          <script>
+            if (window.opener) {
+              console.log('Sending token to parent window...');
+              window.opener.postMessage({ type: 'facebook-token', token: '${access_token}' }, '*');
+              window.close();
+            } else {
+              document.body.innerHTML = 'Authentication successful. You can close this window.';
+            }
+          </script>
+          <p>Authentication successful. Please wait...</p>
+        </body>
+      </html>
+    `;
+        res.send(responseHtml);
 
-        // Return HTML with JS redirect to avoid serverless header issues
-        res.send(`
-            <html>
-                <body>
-                    <p>Redirecting to Flow Estate CRM...</p>
-                    <script>
-                        window.location.href = "${finalUrl}";
-                    </script>
-                </body>
-            </html>
-        `);
-
-    } catch (err) {
-        console.error('Facebook Auth Error:', err.response?.data || err.message);
-        // Return error to browser so we can see it
-        res.status(500).send(`
-            <h1>Authentication Failed</h1>
-            <p>Error details: ${JSON.stringify(err.response?.data || err.message)}</p>
-            <p>Please double check your App Secret and App ID.</p>
-        `);
+    } catch (e) {
+        logError('Access Token Exchange', e);
+        res.status(500).send(`An internal server error occurred while fetching the access token: ${e.message}`);
     }
 });
 
-// 3. Get Pages (Proxy)
-router.get('/pages', authenticateToken, async (req, res) => {
-    const { user_access_token } = req.query; // Passed from frontend for now
+// 3. Fetch user's assets (Businesses, Ad Accounts, Pages)
+router.get('/assets', async (req, res) => {
+    const { authorization } = req.headers;
+    const accessToken = authorization ? authorization.split(' ')[1] : null;
 
-    if (!user_access_token) return res.status(400).send('Missing access token');
+    if (!accessToken) {
+        return res.status(401).send('Error: No access token provided.');
+    }
 
     try {
-        // Fetch pages the user has access to
-        const response = await axios.get(`https://graph.facebook.com/v18.0/me/accounts`, {
-            params: {
-                access_token: user_access_token,
-                limit: 100
-            }
+        console.log('Fetching user assets...');
+        const [businessesRes, adAccountsRes, pagesRes] = await Promise.all([
+            axios.get('https://graph.facebook.com/v19.0/me/businesses', { params: { access_token: accessToken } }).catch(err => ({ data: { data: [] } })), // Optional perm might fail
+            axios.get('https://graph.facebook.com/v19.0/me/adaccounts', { params: { access_token: accessToken, fields: 'id,name,account_id' } }).catch(err => ({ data: { data: [] } })),
+            axios.get('https://graph.facebook.com/v19.0/me/accounts', { params: { access_token: accessToken, fields: 'id,name,access_token' } })
+        ]);
+        console.log('Successfully fetched assets.');
+
+        res.json({
+            businesses: businessesRes.data.data || [],
+            adAccounts: adAccountsRes.data.data || [],
+            pages: pagesRes.data.data || [],
         });
 
-        // Return structured list
-        const pages = response.data.data.map(p => ({
-            id: p.id,
-            name: p.name,
-            access_token: p.access_token // Page Access Token needed for lead retrieval
-        }));
-
-        res.json(pages);
-    } catch (err) {
-        console.error('Error fetching pages:', err.response?.data || err.message);
-        res.status(500).send('Failed to fetch pages');
+    } catch (e) {
+        logError('Fetching Assets', e);
+        res.status(500).send('An internal server error occurred while fetching assets.');
     }
 });
 
-// 4. Get Lead Gen Forms for a Page
-router.get('/forms', authenticateToken, async (req, res) => {
-    const { page_access_token, page_id } = req.query;
+// 4. Fetch lead forms for a specific page
+router.get('/forms/:pageId', async (req, res) => {
+    const { pageId } = req.params;
+    const { authorization } = req.headers;
+    const accessToken = authorization ? authorization.split(' ')[1] : null;
 
-    if (!page_access_token || !page_id) return res.status(400).send('Missing page credentials');
+    if (!accessToken) {
+        return res.status(401).send('Error: No access token provided.');
+    }
 
     try {
-        const response = await axios.get(`https://graph.facebook.com/v18.0/${page_id}/leadgen_forms`, {
-            params: {
-                access_token: page_access_token,
-                limit: 100
-            }
+        console.log(`Fetching forms for page ${pageId}...`);
+        const formsResponse = await axios.get(`https://graph.facebook.com/v19.0/${pageId}/leadgen_forms`, {
+            params: { access_token: accessToken },
         });
+        console.log('Successfully fetched forms.');
 
-        const forms = response.data.data.map(f => ({
-            id: f.id,
-            name: f.name,
-            status: f.status
-        }));
+        res.json(formsResponse.data.data || []);
 
-        res.json(forms);
-    } catch (err) {
-        console.error('Error fetching forms:', err.response?.data || err.message);
-        res.status(500).send('Failed to fetch forms');
+    } catch (e) {
+        logError('Fetching Forms', e);
+        res.status(500).send('An internal server error occurred while fetching forms.');
     }
 });
-
 
 module.exports = router;

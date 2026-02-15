@@ -28,6 +28,7 @@ app.use('/api/integrations', require('./routes/integrations'));
 app.use('/api/evolution', require('./routes/evolution'));
 app.use('/api/n8n', require('./routes/n8n'));
 app.use('/api/webhooks', require('./routes/webhooks'));
+app.use('/api/webhooks/facebook', require('./routes/webhooks_facebook'));
 const facebookAuthRoutes = require('./routes/auth_facebook');
 app.use('/api/facebook', facebookAuthRoutes);
 app.use('/api/users', require('./routes/users'));
