@@ -51,7 +51,7 @@ router.get('/callback', async (req, res) => {
 
         // 5. Redirect back to frontend
         const isProduction = process.env.NODE_ENV === 'production';
-        const frontendUrl = process.env.FRONTEND_URL || (isProduction ? '' : 'http://localhost:5173');
+        const frontendUrl = process.env.FRONTEND_URL || (isProduction ? 'https://flow-estate-crm.vercel.app' : 'http://localhost:5173');
 
         res.redirect(`${frontendUrl}/integrations?fb_token=${userAccessToken}&fb_user_id=${fbUserId}`);
 
