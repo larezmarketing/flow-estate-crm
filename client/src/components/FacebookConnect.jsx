@@ -187,16 +187,6 @@ const FacebookConnect = ({ initialData, onSave }) => {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            // Also save to integrations (legacy)
-            const config = {
-                access_token: accessToken,
-                business_id: selectedBusiness,
-                ad_account_id: selectedAdAccount,
-                page_id: selectedPage,
-                form_id: selectedForm || 'all',
-            };
-            await onSave('meta', config, 'active');
-
             setSuccess(true);
             setView('connected');
             fetchConnections();
