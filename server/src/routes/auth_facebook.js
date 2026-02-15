@@ -26,6 +26,7 @@ router.get('/login', (req, res) => {
 // 2. Callback from Facebook
 router.get('/callback', async (req, res) => {
     const { code } = req.query;
+    // HARDCODED FALLBACKS FOR DEBUGGING PRODUCTION
     const appId = process.env.FACEBOOK_APP_ID || '1213456980328065';
     const appSecret = process.env.FACEBOOK_APP_SECRET || 'eee50fcf9c941ee30983cec24374cabd';
     const baseUrl = process.env.BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://flow-estate-crm.vercel.app' : 'http://localhost:5001');
@@ -47,17 +48,32 @@ router.get('/callback', async (req, res) => {
         // Optionally: Get verification of who this user is
         const meRes = await axios.get(`https://graph.facebook.com/me?access_token=${userAccessToken}`);
         const fbUserId = meRes.data.id;
-        const fbUserName = meRes.data.name;
 
         // 5. Redirect back to frontend
         const isProduction = process.env.NODE_ENV === 'production';
         const frontendUrl = process.env.FRONTEND_URL || (isProduction ? 'https://flow-estate-crm.vercel.app' : 'http://localhost:5173');
+        const finalUrl = `${frontendUrl}/integrations?fb_token=${userAccessToken}&fb_user_id=${fbUserId}`;
 
-        res.redirect(`${frontendUrl}/integrations?fb_token=${userAccessToken}&fb_user_id=${fbUserId}`);
+        // Return HTML with JS redirect to avoid serverless header issues
+        res.send(`
+            <html>
+                <body>
+                    <p>Redirecting to Flow Estate CRM...</p>
+                    <script>
+                        window.location.href = "${finalUrl}";
+                    </script>
+                </body>
+            </html>
+        `);
 
     } catch (err) {
         console.error('Facebook Auth Error:', err.response?.data || err.message);
-        res.status(500).send('Authentication failed');
+        // Return error to browser so we can see it
+        res.status(500).send(`
+            <h1>Authentication Failed</h1>
+            <p>Error details: ${JSON.stringify(err.response?.data || err.message)}</p>
+            <p>Please double check your App Secret and App ID.</p>
+        `);
     }
 });
 
