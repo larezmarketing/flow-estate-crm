@@ -209,6 +209,22 @@ router.post('/connections', async (req, res) => {
             ]
         );
 
+        // Subscribe webhook to the page for leadgen events
+        try {
+            console.log(`Subscribing webhook to page ${pageId} for leadgen events...`);
+            const subscribeResponse = await axios.post(
+                `https://graph.facebook.com/v19.0/${pageId}/subscribed_apps`,
+                {
+                    subscribed_fields: ['leadgen'],
+                    access_token: accessToken
+                }
+            );
+            console.log('Webhook subscription successful:', subscribeResponse.data);
+        } catch (subscribeError) {
+            console.error('Failed to subscribe webhook to page:', subscribeError.response?.data || subscribeError.message);
+            // Don't fail the entire request if subscription fails
+        }
+
         res.json(result.rows[0]);
     } catch (err) {
         logError('Saving Connection', err);
