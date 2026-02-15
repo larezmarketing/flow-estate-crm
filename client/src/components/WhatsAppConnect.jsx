@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+const API_URL = import.meta.env.VITE_API_URL || '';
 import { RefreshCw, CheckCircle, Smartphone, QrCode, LogOut } from 'lucide-react';
 
 const WhatsAppConnect = () => {
@@ -18,7 +19,7 @@ const WhatsAppConnect = () => {
                 if (!token) return;
 
                 // 1. Get User Profile to find instance ID
-                const profileRes = await axios.get(`${import.meta.env.VITE_API_URL}/api/users/profile`, {
+                const profileRes = await axios.get(`${API_URL}/api/users/profile`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
 
@@ -65,7 +66,7 @@ const WhatsAppConnect = () => {
             const token = localStorage.getItem('token');
 
             const response = await axios.post(
-                `${import.meta.env.VITE_API_URL}/api/evolution/instance`,
+                `${API_URL}/api/evolution/instance`,
                 {
                     userId: userId,
                     description: 'Flow Estate Agent Connection'
@@ -84,7 +85,7 @@ const WhatsAppConnect = () => {
             console.log('My Instance:', myInstanceName);
 
             // 2. Check if already connected
-            const statusRes = await axios.get(`${import.meta.env.VITE_API_URL}/api/evolution/instance/${myInstanceName}/status`);
+            const statusRes = await axios.get(`${API_URL}/api/evolution/instance/${myInstanceName}/status`);
             if (statusRes.data?.instance?.state === 'open') {
                 setStep(3);
                 setStatus('connected');
@@ -107,8 +108,8 @@ const WhatsAppConnect = () => {
 
     const configureWebhook = async (name) => {
         try {
-            await axios.post(`${import.meta.env.VITE_API_URL}/api/evolution/webhook/configure/${name}`, {
-                webhookUrl: `${import.meta.env.VITE_API_URL}/api/evolution/webhook`, // Explicitly correct URL
+            await axios.post(`${API_URL}/api/evolution/webhook/configure/${name}`, {
+                webhookUrl: `${API_URL}/api/evolution/webhook`, // Explicitly correct URL
                 events: ["MESSAGES_UPSERT", "MESSAGES_UPDATE"]
             });
             console.log('Webhook configured successfully');
@@ -121,7 +122,7 @@ const WhatsAppConnect = () => {
         setLoading(true);
         setError('');
         try {
-            const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/evolution/instance/${name}/qr`);
+            const response = await axios.get(`${API_URL}/api/evolution/instance/${name}/qr`);
             const { base64 } = response.data;
 
             if (base64) {
@@ -143,7 +144,7 @@ const WhatsAppConnect = () => {
     const checkStatus = async (name = instanceName) => {
         if (!name) return false;
         try {
-            const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/evolution/instance/${name}/status`);
+            const response = await axios.get(`${API_URL}/api/evolution/instance/${name}/status`);
             const connectionStatus = response.data?.instance?.state || 'close';
 
             if (connectionStatus === 'open') {
@@ -178,7 +179,7 @@ const WhatsAppConnect = () => {
 
         setLoading(true);
         try {
-            await axios.delete(`${import.meta.env.VITE_API_URL}/api/evolution/instance/${instanceName}/logout`);
+            await axios.delete(`${API_URL}/api/evolution/instance/${instanceName}/logout`);
             setStatus('disconnected');
             setStep(0);
             setQrCode(null);
