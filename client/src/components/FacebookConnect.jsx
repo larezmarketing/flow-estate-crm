@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Facebook, CheckCircle, RefreshCw, AlertCircle } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || '';
+
 const FacebookConnect = ({ initialData, onSave }) => {
     const [step, setStep] = useState(0); // 0: Disconnected, 1: Connecting (Auth), 2: Selecting Assets, 3: Connected
     const [userAccessToken, setUserAccessToken] = useState('');
@@ -38,7 +40,7 @@ const FacebookConnect = ({ initialData, onSave }) => {
         setLoading(true);
         try {
             // Get Auth URL from backend
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/facebook/login`);
+            const res = await axios.get(`${API_URL}/api/facebook/login`);
             window.location.href = res.data.url; // Redirect to Facebook
         } catch (err) {
             setError('Failed to initiate Facebook Login');
@@ -52,7 +54,7 @@ const FacebookConnect = ({ initialData, onSave }) => {
         try {
             // Backend proxy to avoid CORS and exposing tokens
             const tokenToUse = token || userAccessToken;
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/facebook/pages`, {
+            const res = await axios.get(`${API_URL}/api/facebook/pages`, {
                 params: { user_access_token: tokenToUse },
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
@@ -67,7 +69,7 @@ const FacebookConnect = ({ initialData, onSave }) => {
     const fetchForms = async (pageId, pageAccessToken) => {
         setLoading(true);
         try {
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/facebook/forms`, {
+            const res = await axios.get(`${API_URL}/api/facebook/forms`, {
                 params: { page_id: pageId, page_access_token: pageAccessToken },
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });

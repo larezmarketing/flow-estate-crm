@@ -5,6 +5,8 @@ import { Facebook, Mail, MessageSquare, Save, CheckCircle, AlertCircle } from 'l
 import WhatsAppConnect from '../components/WhatsAppConnect';
 import FacebookConnect from '../components/FacebookConnect';
 
+const API_URL = import.meta.env.VITE_API_URL || '';
+
 const IntegrationCard = ({ title, icon: Icon, type, description, fields, onSave, initialData }) => {
     const [enabled, setEnabled] = useState(false);
     const [config, setConfig] = useState({});
@@ -127,7 +129,7 @@ const Integrations = () => {
     const fetchIntegrations = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/integrations`, {
+            const res = await axios.get(`${API_URL}/api/integrations`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setIntegrations(res.data);
@@ -138,7 +140,7 @@ const Integrations = () => {
 
     const handleSave = async (type, config, status) => {
         const token = localStorage.getItem('token');
-        await axios.post(`${import.meta.env.VITE_API_URL}/api/integrations`,
+        await axios.post(`${API_URL}/api/integrations`,
             { type, config, status },
             { headers: { Authorization: `Bearer ${token}` } }
         );
