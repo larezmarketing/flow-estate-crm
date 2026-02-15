@@ -188,7 +188,7 @@ const FacebookConnect = ({ initialData, onSave }) => {
     return (
         <div className="bg-white shadow sm:rounded-lg overflow-hidden border border-gray-200">
             <div className="px-4 py-5 sm:px-6 flex items-center gap-3 border-b border-gray-200">
-                <h3 className="text-lg font-medium leading-6 text-gray-900">Meta Ads (Facebook/Instagram) <span className="text-xs text-gray-400">v2.0</span></h3>
+                <h3 className="text-lg font-medium leading-6 text-gray-900">Meta Ads (Facebook/Instagram) <span className="text-xs text-gray-400">v2.1</span></h3>
             </div>
 
             <div className="px-4 py-5 sm:p-6 bg-gray-50/50">
