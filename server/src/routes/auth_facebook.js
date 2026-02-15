@@ -172,4 +172,40 @@ router.get('/forms/:pageId', async (req, res) => {
     }
 });
 
+// 5. Get all connections for the current user
+router.get('/connections', async (req, res) => {
+    try {
+        // TODO: Get connections from database filtered by user
+        // For now, return mock data
+        const connections = [
+            {
+                id: '1',
+                name: 'Growth Estate - Main',
+                page_id: '123456',
+                page_name: 'Growth Estate',
+                form_id: 'all',
+                status: 'active',
+                created_at: new Date().toISOString()
+            }
+        ];
+        res.json(connections);
+    } catch (err) {
+        logError('Fetching Connections', err);
+        res.status(500).json({ error: 'Failed to fetch connections' });
+    }
+});
+
+// 6. Delete a connection
+router.delete('/connections/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        // TODO: Delete connection from database
+        console.log(`Deleting connection ${id}`);
+        res.json({ success: true });
+    } catch (err) {
+        logError('Deleting Connection', err);
+        res.status(500).json({ error: 'Failed to delete connection' });
+    }
+});
+
 module.exports = router;

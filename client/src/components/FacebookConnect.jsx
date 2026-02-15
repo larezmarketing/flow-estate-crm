@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { RefreshCw, CheckCircle, AlertCircle, ArrowLeft, Trash2 } from 'lucide-react';
 import { API_URL } from '../config';
 
 const FacebookConnect = ({ initialData, onSave }) => {
+    // View states: 'initial', 'connected', 'list', 'edit'
+    const [view, setView] = useState('initial');
+    const [connections, setConnections] = useState([]);
+    const [editingConnection, setEditingConnection] = useState(null);
+    
     const [accessToken, setAccessToken] = useState(null);
     const [businesses, setBusinesses] = useState([]);
     const [adAccounts, setAdAccounts] = useState([]);
@@ -25,20 +30,26 @@ const FacebookConnect = ({ initialData, onSave }) => {
     // Initialize from props
     useEffect(() => {
         if (initialData && initialData.status === 'active') {
-            setSuccess(true); // Already connected
-            // Optionally populate state if we had stored it
-            if (initialData.config) {
-                setAccessToken(initialData.config.access_token); // If we decide to return this
-                setSelectedPage(initialData.config.page_id);
-                setSelectedForm(initialData.config.form_id);
-            }
+            setView('connected');
+            fetchConnections();
         }
     }, [initialData]);
+
+    const fetchConnections = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.get(`${API_URL}/api/facebook/connections`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setConnections(res.data || []);
+        } catch (err) {
+            console.error('Error fetching connections:', err);
+        }
+    };
 
     // Listen for the token from the popup
     useEffect(() => {
         const handleMessage = (event) => {
-            // Security check: ensure origin matches if possible, or trust the type
             if (event.data?.type === 'facebook-token') {
                 console.log('Received token from popup');
                 setAccessToken(event.data.token);
@@ -50,47 +61,47 @@ const FacebookConnect = ({ initialData, onSave }) => {
         return () => window.removeEventListener('message', handleMessage);
     }, []);
 
-    // Fetch assets when token is received
+    // Fetch assets after token is received
     useEffect(() => {
         if (accessToken) {
             fetchAssets();
         }
     }, [accessToken]);
 
-    const handleConnect = () => {
-        console.log('Opening Facebook login popup...');
-
-        // Use API_URL for the backend route
-        const popup = window.open(`${API_URL}/api/facebook`, 'facebook-login', 'width=600,height=600');
-        if (!popup) {
-            setError('Popup was blocked. Please allow popups for this site.');
-        }
-    };
-
     const fetchAssets = async () => {
         setLoading(true);
         setError(null);
         try {
-            console.log('Fetching assets...');
             const response = await axios.get(`${API_URL}/api/facebook/assets`, {
-                headers: {
-                    // Provided code uses 'Authorization: Bearer FB_TOKEN'
-                    // We must match what the backend expects. 
-                    // The v2 backend expects `req.headers.authorization` to be the FB token.
-                    Authorization: `Bearer ${accessToken}`,
-                },
+                headers: { Authorization: `Bearer ${accessToken}` },
             });
 
             setBusinesses(response.data.businesses || []);
             setAdAccounts(response.data.adAccounts || []);
             setPages(response.data.pages || []);
-            console.log('Assets fetched successfully');
+            setView('edit'); // Switch to edit view after getting assets
         } catch (err) {
             console.error('Error fetching assets:', err);
-            setError('Failed to fetch your Facebook assets. Please try again.');
+            setError('Failed to fetch Facebook assets. Please try again.');
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleConnect = () => {
+        setLoading(true);
+        setError(null);
+        const popup = window.open(`${API_URL}/api/facebook`, 'facebook-login', 'width=600,height=700');
+
+        const checkPopup = setInterval(() => {
+            if (popup.closed) {
+                clearInterval(checkPopup);
+                setLoading(false);
+                if (!accessToken) {
+                    setError('Login was cancelled or failed. Please try again.');
+                }
+            }
+        }, 1000);
     };
 
     const handlePageChange = async (e) => {
@@ -129,7 +140,7 @@ const FacebookConnect = ({ initialData, onSave }) => {
     };
 
     const handleSave = async () => {
-        if (!selectedPage) { // Form can be optional or 'all'
+        if (!selectedPage) {
             setError('Please select a page.');
             return;
         }
@@ -137,28 +148,18 @@ const FacebookConnect = ({ initialData, onSave }) => {
         setLoading(true);
         setError(null);
         try {
-            console.log('Saving configuration...');
-
-            const selectedPageObj = pages.find(p => p.id === selectedPage);
-
             const config = {
+                access_token: accessToken,
                 business_id: selectedBusiness,
                 ad_account_id: selectedAdAccount,
                 page_id: selectedPage,
-                page_name: selectedPageObj?.name,
-                form_id: selectedForm,
-                access_token: accessToken, // Important: Page Access Token usually needed, but user said 'page_access_token' in DB logic. 
-                // The fetchAssets endpoint returned 'access_token' for each page in 'v19.0/me/accounts'. 
-                // So 'selectedPageObj' should have 'access_token'.
-                page_access_token: selectedPageObj?.access_token
+                form_id: selectedForm || 'all',
             };
 
-            // Call parent onSave which saves to DB
             await onSave('meta', config, 'active');
-
             setSuccess(true);
-            console.log('Configuration saved successfully');
-
+            setView('connected');
+            fetchConnections();
         } catch (err) {
             console.error('Error saving configuration:', err);
             setError('Failed to save configuration. Please try again.');
@@ -168,59 +169,194 @@ const FacebookConnect = ({ initialData, onSave }) => {
     };
 
     const handleDisconnect = async () => {
-        await onSave('meta', {}, 'inactive');
-        setSuccess(false);
-        setAccessToken(null);
+        if (!confirm('Are you sure you want to disconnect Facebook?')) return;
+        
+        try {
+            await onSave('meta', {}, 'inactive');
+            setView('initial');
+            setAccessToken(null);
+            setConnections([]);
+        } catch (err) {
+            console.error('Error disconnecting:', err);
+        }
     };
 
-    if (success) {
+    const handleDeleteConnection = async (connectionId) => {
+        if (!confirm('Are you sure you want to delete this connection?')) return;
+        
+        try {
+            const token = localStorage.getItem('token');
+            await axios.delete(`${API_URL}/api/facebook/connections/${connectionId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            fetchConnections();
+        } catch (err) {
+            console.error('Error deleting connection:', err);
+        }
+    };
+
+    const handleEditConnection = (connection) => {
+        setEditingConnection(connection);
+        setSelectedBusiness(connection.business_id || '');
+        setSelectedAdAccount(connection.ad_account_id || '');
+        setSelectedPage(connection.page_id || '');
+        setSelectedForm(connection.form_id || '');
+        setView('edit');
+    };
+
+    // Connected Banner View
+    if (view === 'connected') {
         return (
-            <div className="bg-white p-4 rounded-lg border border-blue-100 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 p-2 rounded-full">
-                        <CheckCircle className="h-6 w-6 text-blue-600" />
+            <div className="bg-white shadow sm:rounded-lg overflow-hidden">
+                <div className="px-4 py-5 sm:px-6 flex items-center gap-3 border-b border-gray-200">
+                    <div className="p-2 rounded-lg bg-brand-blue/10">
+                        <svg className="h-6 w-6 text-brand-blue" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                        </svg>
                     </div>
-                    <div>
-                        <h4 className="text-sm font-medium text-gray-900">Connected</h4>
-                        <p className="text-sm text-gray-500">Facebook Leads Integration Active <span className="text-xs text-gray-400">v2.0</span></p>
+                    <div className="flex-1">
+                        <h3 className="text-lg font-medium leading-6 text-gray-900">Meta Ads (Facebook/Instagram)</h3>
+                        <p className="mt-1 max-w-2xl text-sm text-gray-500">Connect to receive leads.</p>
                     </div>
                 </div>
-                <button
-                    onClick={handleDisconnect}
-                    className="text-red-600 hover:text-red-800 text-sm font-medium"
-                >
-                    Disconnect
-                </button>
+
+                <div className="px-6 py-6">
+                    {/* Connected Banner */}
+                    <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center">
+                                <CheckCircle className="w-7 h-7 text-white" />
+                            </div>
+                            <div>
+                                <h4 className="text-lg font-semibold text-gray-900">Connected</h4>
+                                <p className="text-sm text-gray-600">Facebook Leads Integration Active v2.0</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleDisconnect}
+                            className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                            Disconnect
+                        </button>
+                    </div>
+
+                    {/* View Connections Button */}
+                    <button
+                        onClick={() => setView('list')}
+                        className="w-full px-4 py-3 text-sm font-medium text-brand-blue bg-brand-blue/10 hover:bg-brand-blue/20 rounded-lg transition-colors"
+                    >
+                        Ver Conexiones
+                    </button>
+                </div>
             </div>
         );
     }
 
-    return (
-        <div className="bg-white shadow sm:rounded-lg overflow-hidden border border-gray-200">
-            <div className="px-4 py-5 sm:px-6 flex items-center gap-3 border-b border-gray-200">
-                <h3 className="text-lg font-medium leading-6 text-gray-900">Meta Ads (Facebook/Instagram) <span className="text-xs text-gray-400">v2.3</span></h3>
-            </div>
-
-            <div className="px-4 py-5 sm:p-6 bg-gray-50/50">
-                {error && (
-                    <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4" />
-                        {error}
-                    </div>
-                )}
-
-                {!accessToken ? (
-                    <div className="text-center py-6">
-                        <p className="mb-4 text-sm text-gray-500">Connect your Facebook account to start receiving leads.</p>
+    // Connections List View
+    if (view === 'list') {
+        return (
+            <div className="bg-white shadow sm:rounded-lg overflow-hidden">
+                <div className="px-4 py-5 sm:px-6 flex items-center justify-between border-b border-gray-200">
+                    <div className="flex items-center gap-3">
                         <button
-                            onClick={handleConnect}
-                            disabled={loading}
-                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#1877F2] hover:bg-[#166fe5] focus:outline-none"
+                            onClick={() => setView('connected')}
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                         >
-                            {loading ? 'Connecting...' : 'Connect with Facebook'}
+                            <ArrowLeft className="h-5 w-5 text-gray-600" />
                         </button>
+                        <div>
+                            <h3 className="text-lg font-medium leading-6 text-gray-900">Integración de Facebook</h3>
+                            <p className="mt-1 text-sm text-gray-500">Integra tus campañas de clientes potenciales de Facebook con tu embudo de AlterEstate.</p>
+                        </div>
                     </div>
-                ) : (
+                    <button
+                        onClick={() => {
+                            setEditingConnection(null);
+                            handleConnect();
+                        }}
+                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                    >
+                        Agregar Nuevo
+                    </button>
+                </div>
+
+                <div className="px-6 py-6">
+                    <input
+                        type="text"
+                        placeholder="Search automations"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-6 focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                    />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {connections.map((connection) => (
+                            <div
+                                key={connection.id}
+                                onClick={() => handleEditConnection(connection)}
+                                className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <svg className="h-6 w-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                                        </svg>
+                                        <svg className="h-6 w-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {connection.status === 'active' ? (
+                                            <div className="w-10 h-6 bg-green-500 rounded-full flex items-center justify-end px-1">
+                                                <div className="w-4 h-4 bg-white rounded-full"></div>
+                                            </div>
+                                        ) : (
+                                            <span className="px-2 py-1 text-xs font-medium text-red-600 bg-red-100 rounded-full">Error</span>
+                                        )}
+                                        <button className="text-gray-400 hover:text-gray-600">⋯</button>
+                                    </div>
+                                </div>
+                                <h4 className="text-base font-semibold text-gray-900 mb-1">{connection.name || connection.page_name || 'Unnamed Connection'}</h4>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Edit/Create View
+    if (view === 'edit') {
+        return (
+            <div className="bg-white shadow sm:rounded-lg overflow-hidden">
+                <div className="px-4 py-5 sm:px-6 flex items-center gap-3 border-b border-gray-200">
+                    <button
+                        onClick={() => setView(editingConnection ? 'list' : 'connected')}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                        <ArrowLeft className="h-5 w-5 text-gray-600" />
+                    </button>
+                    <div>
+                        <h3 className="text-lg font-medium leading-6 text-gray-900">
+                            {editingConnection ? 'Editar Integración de Facebook' : 'Nueva Integración de Facebook'}
+                        </h3>
+                        <p className="mt-1 text-sm text-gray-500">Modificar la integración de Meta</p>
+                    </div>
+                </div>
+
+                <div className="px-6 py-6">
+                    {error && (
+                        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                            <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                            <p className="text-sm text-red-700">{error}</p>
+                        </div>
+                    )}
+
+                    {success && (
+                        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
+                            <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                            <p className="text-sm text-green-700">Configuration saved successfully!</p>
+                        </div>
+                    )}
+
                     <div className="space-y-4">
                         <div className="grid grid-cols-1 gap-4">
                             <div>
@@ -447,7 +583,7 @@ const FacebookConnect = ({ initialData, onSave }) => {
                                         className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                                         value={selectedForm}
                                         onChange={(e) => setSelectedForm(e.target.value)}
-                                        disabled={loading || forms.length === 0}
+                                        disabled={loading}
                                     >
                                         <option value="">Select a Form (Optional)</option>
                                         {forms.map((form) => (
@@ -460,17 +596,60 @@ const FacebookConnect = ({ initialData, onSave }) => {
                             )}
                         </div>
 
-                        <div className="flex justify-end pt-4">
+                        <div className="flex justify-between pt-4">
+                            {editingConnection && (
+                                <button
+                                    onClick={() => handleDeleteConnection(editingConnection.id)}
+                                    className="inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none"
+                                >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                </button>
+                            )}
                             <button
                                 onClick={handleSave}
                                 disabled={loading || !selectedPage}
-                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none disabled:bg-gray-300"
+                                className="ml-auto inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none disabled:opacity-50"
                             >
                                 {loading ? 'Saving...' : 'Save Configuration'}
                             </button>
                         </div>
                     </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Initial View - Connect Button
+    return (
+        <div className="bg-white shadow sm:rounded-lg overflow-hidden">
+            <div className="px-4 py-5 sm:px-6 flex items-center gap-3 border-b border-gray-200">
+                <div className="p-2 rounded-lg bg-gray-100">
+                    <svg className="h-6 w-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 className="text-lg font-medium leading-6 text-gray-900">Meta Ads (Facebook/Instagram) <span className="text-sm text-gray-500">v2.3</span></h3>
+                    <p className="mt-1 max-w-2xl text-sm text-gray-500">Connect your Facebook account to start receiving leads.</p>
+                </div>
+            </div>
+
+            <div className="px-6 py-6">
+                {error && (
+                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-red-700">{error}</p>
+                    </div>
                 )}
+
+                <button
+                    onClick={handleConnect}
+                    disabled={loading}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#1877F2] hover:bg-[#166fe5] focus:outline-none"
+                >
+                    {loading ? 'Connecting...' : 'Connect with Facebook'}
+                </button>
             </div>
         </div>
     );
