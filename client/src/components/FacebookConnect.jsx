@@ -135,7 +135,7 @@ const FacebookConnect = ({ initialData, onSave }) => {
                     <Facebook className={`h-6 w-6 ${step > 0 ? 'text-blue-600' : 'text-gray-400'}`} />
                 </div>
                 <div>
-                    <h3 className="text-lg font-medium leading-6 text-gray-900">Meta Ads (Facebook/Instagram)</h3>
+                    <h3 className="text-lg font-medium leading-6 text-gray-900">Meta Ads (Facebook/Instagram) <span className="text-xs text-gray-400">v1.1</span></h3>
                     <p className="mt-1 max-w-2xl text-sm text-gray-500">Connect to receive leads.</p>
                 </div>
             </div>
