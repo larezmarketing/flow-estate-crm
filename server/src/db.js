@@ -34,6 +34,13 @@ const runMigrations = async () => {
                 );
             `);
             console.log('Migrations executed successfully');
+
+            // Add external_id to leads table
+            await client.query(`
+                ALTER TABLE leads 
+                ADD COLUMN IF NOT EXISTS external_id VARCHAR(255) UNIQUE;
+            `);
+            console.log('Verified/Added external_id to leads table');
         } finally {
             client.release();
         }
