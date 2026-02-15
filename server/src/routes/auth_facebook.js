@@ -47,12 +47,11 @@ router.get('/callback', async (req, res) => {
         const fbUserId = meRes.data.id;
         const fbUserName = meRes.data.name;
 
-        // In a real app, we might redirect back to frontend with the token in query param
-        // or set a cookie. For this flow, let's redirect to frontend with token.
-        // Frontend URL: http://localhost:5173/integrations
+        // 5. Redirect back to frontend
+        const isProduction = process.env.NODE_ENV === 'production';
+        const frontendUrl = process.env.FRONTEND_URL || (isProduction ? '' : 'http://localhost:5173');
 
-        // WARN: sending token in URL is not secure for production but okay for MVP/Dev
-        res.redirect(`http://localhost:5173/integrations?fb_token=${userAccessToken}&fb_user_id=${fbUserId}`);
+        res.redirect(`${frontendUrl}/integrations?fb_token=${userAccessToken}&fb_user_id=${fbUserId}`);
 
     } catch (err) {
         console.error('Facebook Auth Error:', err.response?.data || err.message);
