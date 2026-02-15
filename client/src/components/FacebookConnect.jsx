@@ -168,9 +168,12 @@ const FacebookConnect = ({ initialData, onSave }) => {
             const form = forms.find(f => f.id === selectedForm);
 
             // Prepare connection data
+            // Use page access token instead of user access token for webhook subscription
+            const pageAccessToken = page?.access_token || accessToken;
+            
             const connectionData = {
                 name: connectionName || page?.name || 'Unnamed Connection',
-                accessToken: accessToken,
+                accessToken: pageAccessToken,
                 businessId: selectedBusiness,
                 businessName: business?.name,
                 adAccountId: selectedAdAccount,
