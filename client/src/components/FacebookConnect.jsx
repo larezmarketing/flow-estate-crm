@@ -15,6 +15,7 @@ const FacebookConnect = ({ initialData, onSave }) => {
     const [pages, setPages] = useState([]);
     const [forms, setForms] = useState([]);
 
+    const [connectionName, setConnectionName] = useState('');
     const [selectedBusiness, setSelectedBusiness] = useState('');
     const [selectedAdAccount, setSelectedAdAccount] = useState('');
     const [selectedPage, setSelectedPage] = useState('');
@@ -168,7 +169,7 @@ const FacebookConnect = ({ initialData, onSave }) => {
 
             // Prepare connection data
             const connectionData = {
-                name: page?.name || 'Unnamed Connection',
+                name: connectionName || page?.name || 'Unnamed Connection',
                 accessToken: accessToken,
                 businessId: selectedBusiness,
                 businessName: business?.name,
@@ -389,6 +390,18 @@ const FacebookConnect = ({ initialData, onSave }) => {
 
                     <div className="space-y-4">
                         <div className="grid grid-cols-1 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Connection Name</label>
+                                <input
+                                    type="text"
+                                    value={connectionName}
+                                    onChange={(e) => setConnectionName(e.target.value)}
+                                    placeholder="e.g., Growth Estate - Main Campaign"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Give this connection a memorable name</p>
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Business</label>
                                 <div className="relative">
