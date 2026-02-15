@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
-
-const API_URL = import.meta.env.MODE === 'production' ? '' : (import.meta.env.VITE_API_URL || '');
+import { API_URL } from '../config';
 
 const FacebookConnect = ({ initialData, onSave }) => {
     const [accessToken, setAccessToken] = useState(null);

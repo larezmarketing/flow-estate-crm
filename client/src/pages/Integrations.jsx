@@ -4,8 +4,7 @@ import Layout from '../components/Layout';
 import { Facebook, Mail, MessageSquare, Save, CheckCircle, AlertCircle } from 'lucide-react';
 import WhatsAppConnect from '../components/WhatsAppConnect';
 import FacebookConnect from '../components/FacebookConnect';
-
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { API_URL } from '../config';
 
 const IntegrationCard = ({ title, icon: Icon, type, description, fields, onSave, initialData }) => {
     const [enabled, setEnabled] = useState(false);
