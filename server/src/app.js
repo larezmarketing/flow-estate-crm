@@ -65,9 +65,18 @@ app.get('/health-db', async (req, res) => {
 });
 
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+  // Run migrations before starting server
+  const runMigrations = require('./migrations/runMigrations');
+  runMigrations()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+      });
+    })
+    .catch(err => {
+      console.error('Failed to run migrations:', err);
+      process.exit(1);
+    });
 }
 
 module.exports = app;
