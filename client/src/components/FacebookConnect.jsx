@@ -47,10 +47,10 @@ const FacebookConnect = ({ initialData, onSave }) => {
         }
     };
 
-    // Listen for the token from the popup (only when connecting)
+    // Listen for the token from the popup
     useEffect(() => {
-        // Only listen for messages when we're in a connecting state
-        if (view !== 'initial' && view !== 'edit') {
+        // Don't listen when already connected (to avoid re-triggering)
+        if (view === 'connected') {
             return;
         }
 
@@ -66,9 +66,9 @@ const FacebookConnect = ({ initialData, onSave }) => {
         return () => window.removeEventListener('message', handleMessage);
     }, [view]);
 
-    // Fetch assets after token is received (only if not already connected)
+    // Fetch assets after token is received
     useEffect(() => {
-        if (accessToken && view !== 'connected' && view !== 'list') {
+        if (accessToken && view === 'edit' && businesses.length === 0) {
             fetchAssets();
         }
     }, [accessToken, view]);
@@ -96,17 +96,24 @@ const FacebookConnect = ({ initialData, onSave }) => {
     const handleConnect = () => {
         setLoading(true);
         setError(null);
-        const popup = window.open(`${API_URL}/api/facebook`, 'facebook-login', 'width=600,height=700');
+        
+        // Change to edit view first to enable message listening
+        setView('edit');
+        
+        // Small delay to ensure view is updated before opening popup
+        setTimeout(() => {
+            const popup = window.open(`${API_URL}/api/facebook`, 'facebook-login', 'width=600,height=700');
 
-        const checkPopup = setInterval(() => {
-            if (popup.closed) {
-                clearInterval(checkPopup);
-                setLoading(false);
-                if (!accessToken) {
-                    setError('Login was cancelled or failed. Please try again.');
+            const checkPopup = setInterval(() => {
+                if (popup.closed) {
+                    clearInterval(checkPopup);
+                    setLoading(false);
+                    if (!accessToken) {
+                        setError('Login was cancelled or failed. Please try again.');
+                    }
                 }
-            }
-        }, 1000);
+            }, 1000);
+        }, 100);
     };
 
     const handlePageChange = async (e) => {
