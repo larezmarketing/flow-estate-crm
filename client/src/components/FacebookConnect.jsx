@@ -57,6 +57,7 @@ const FacebookConnect = ({ initialData, onSave }) => {
 
     const handleConnect = () => {
         console.log('Opening Facebook login popup...');
+
         // Use API_URL for the backend route
         const popup = window.open(`${API_URL}/api/facebook`, 'facebook-login', 'width=600,height=600');
         if (!popup) {
@@ -188,7 +189,7 @@ const FacebookConnect = ({ initialData, onSave }) => {
     return (
         <div className="bg-white shadow sm:rounded-lg overflow-hidden border border-gray-200">
             <div className="px-4 py-5 sm:px-6 flex items-center gap-3 border-b border-gray-200">
-                <h3 className="text-lg font-medium leading-6 text-gray-900">Meta Ads (Facebook/Instagram) <span className="text-xs text-gray-400">v2.1</span></h3>
+                <h3 className="text-lg font-medium leading-6 text-gray-900">Meta Ads (Facebook/Instagram) <span className="text-xs text-gray-400">v2.3</span></h3>
             </div>
 
             <div className="px-4 py-5 sm:p-6 bg-gray-50/50">
