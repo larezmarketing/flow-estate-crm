@@ -18,6 +18,7 @@ const FacebookConnect = ({ initialData, onSave }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
+    const [showPageDropdown, setShowPageDropdown] = useState(false);
 
     // Initialize from props
     useEffect(() => {
@@ -101,14 +102,21 @@ const FacebookConnect = ({ initialData, onSave }) => {
             setError(null);
             try {
                 console.log(`Fetching forms for page ${pageId}...`);
+                
+                // Find the selected page to get its access token
+                const selectedPageObj = pages.find(p => p.id === pageId);
+                const pageAccessToken = selectedPageObj?.access_token || accessToken;
+                
+                console.log('Using page access token:', pageAccessToken ? 'Found' : 'Not found');
+                
                 const response = await axios.get(`${API_URL}/api/facebook/forms/${pageId}`, {
                     headers: {
-                        Authorization: `Bearer ${accessToken}`,
+                        Authorization: `Bearer ${pageAccessToken}`,
                     },
                 });
 
                 setForms(response.data || []);
-                console.log('Forms fetched successfully');
+                console.log('Forms fetched successfully:', response.data);
             } catch (err) {
                 console.error('Error fetching forms:', err);
                 setError('Failed to fetch forms for this page. Please try again.');
@@ -249,33 +257,70 @@ const FacebookConnect = ({ initialData, onSave }) => {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Page</label>
-                                <div className="space-y-2">
-                                    {pages.map((page) => (
-                                        <div
-                                            key={page.id}
-                                            onClick={() => handlePageChange({ target: { value: page.id } })}
-                                            className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
-                                                selectedPage === page.id
-                                                    ? 'border-blue-500 bg-blue-50'
-                                                    : 'border-gray-300 hover:border-blue-300 hover:bg-gray-50'
-                                            } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                        >
-                                            {page.picture?.data?.url && (
-                                                <img
-                                                    src={page.picture.data.url}
-                                                    alt={page.name}
-                                                    className="w-10 h-10 rounded-full"
-                                                />
-                                            )}
-                                            <div className="flex-1">
-                                                <p className="text-sm font-medium text-gray-900">{page.name}</p>
-                                                <p className="text-xs text-gray-500">ID: {page.id}</p>
-                                            </div>
-                                            {selectedPage === page.id && (
-                                                <CheckCircle className="w-5 h-5 text-blue-500" />
-                                            )}
+                                <div className="relative">
+                                    {/* Selected page display / dropdown trigger */}
+                                    <div
+                                        onClick={() => setShowPageDropdown(!showPageDropdown)}
+                                        className="flex items-center gap-3 p-3 border border-gray-300 rounded-lg cursor-pointer hover:border-blue-300 bg-white"
+                                    >
+                                        {selectedPage ? (
+                                            <>
+                                                {pages.find(p => p.id === selectedPage)?.picture?.data?.url && (
+                                                    <img
+                                                        src={pages.find(p => p.id === selectedPage)?.picture?.data?.url}
+                                                        alt={pages.find(p => p.id === selectedPage)?.name}
+                                                        className="w-10 h-10 rounded-full"
+                                                    />
+                                                )}
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium text-gray-900">
+                                                        {pages.find(p => p.id === selectedPage)?.name}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">ID: {selectedPage}</p>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <p className="text-sm text-gray-500 flex-1">Select a Page</p>
+                                        )}
+                                        <svg className={`w-5 h-5 text-gray-400 transition-transform ${showPageDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+
+                                    {/* Dropdown list */}
+                                    {showPageDropdown && (
+                                        <div className="absolute z-10 w-full mt-2 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                                            {pages.map((page) => (
+                                                <div
+                                                    key={page.id}
+                                                    onClick={() => {
+                                                        handlePageChange({ target: { value: page.id } });
+                                                        setShowPageDropdown(false);
+                                                    }}
+                                                    className={`flex items-center gap-3 p-3 cursor-pointer transition-all ${
+                                                        selectedPage === page.id
+                                                            ? 'bg-blue-50'
+                                                            : 'hover:bg-gray-50'
+                                                    } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                >
+                                                    {page.picture?.data?.url && (
+                                                        <img
+                                                            src={page.picture.data.url}
+                                                            alt={page.name}
+                                                            className="w-10 h-10 rounded-full"
+                                                        />
+                                                    )}
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-medium text-gray-900">{page.name}</p>
+                                                        <p className="text-xs text-gray-500">ID: {page.id}</p>
+                                                    </div>
+                                                    {selectedPage === page.id && (
+                                                        <CheckCircle className="w-5 h-5 text-blue-500" />
+                                                    )}
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             </div>
 
