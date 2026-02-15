@@ -84,11 +84,19 @@ async function handleLead(leadgenId, pageId) {
 
     try {
         // 2. Fetch Lead Details from Facebook Graph API
-        const graphUrl = `https://graph.facebook.com/v18.0/${leadgenId}?access_token=${accessToken}`;
+        const graphUrl = `https://graph.facebook.com/v18.0/${leadgenId}?fields=created_time,id,ad_id,form_id,field_data&access_token=${accessToken}`;
         const leadRes = await axios.get(graphUrl);
         const leadData = leadRes.data;
 
         console.log('Fetched lead data from Facebook:', JSON.stringify(leadData));
+
+        // 2b. Filter by Form ID if configured
+        if (config.form_id && config.form_id !== '' && config.form_id !== 'all') { // Check for 'all' just in case data was saved that way
+            if (leadData.form_id !== config.form_id) {
+                console.log(`Lead ignored: Form ID ${leadData.form_id} does not match configured form ${config.form_id}`);
+                return;
+            }
+        }
 
         // 3. Map fields robustly
         let name = 'Facebook Lead';
