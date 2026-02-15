@@ -47,8 +47,13 @@ const FacebookConnect = ({ initialData, onSave }) => {
         }
     };
 
-    // Listen for the token from the popup
+    // Listen for the token from the popup (only when connecting)
     useEffect(() => {
+        // Only listen for messages when we're in a connecting state
+        if (view !== 'initial' && view !== 'edit') {
+            return;
+        }
+
         const handleMessage = (event) => {
             if (event.data?.type === 'facebook-token') {
                 console.log('Received token from popup');
@@ -59,14 +64,14 @@ const FacebookConnect = ({ initialData, onSave }) => {
 
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, []);
+    }, [view]);
 
-    // Fetch assets after token is received
+    // Fetch assets after token is received (only if not already connected)
     useEffect(() => {
-        if (accessToken) {
+        if (accessToken && view !== 'connected' && view !== 'list') {
             fetchAssets();
         }
-    }, [accessToken]);
+    }, [accessToken, view]);
 
     const fetchAssets = async () => {
         setLoading(true);
