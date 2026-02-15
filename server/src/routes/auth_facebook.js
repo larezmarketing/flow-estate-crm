@@ -82,6 +82,10 @@ router.get('/callback', async (req, res) => {
         // IMPORTANT: Here you should save the access_token to your database, associated with the user.
 
         // Send the token to the frontend using postMessage and close the popup
+        // Set headers to allow cross-origin communication
+        res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
+        res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+        
         const responseHtml = `
         <html>
             <head>
@@ -91,8 +95,8 @@ router.get('/callback', async (req, res) => {
             <script>
                 if (window.opener) {
                 console.log('Sending token to parent window...');
-                window.opener.postMessage({ type: 'facebook-token', token: '${access_token}' }, '*');
-                window.close();
+                window.opener.postMessage({ type: 'facebook-token', token: '${access_token}' }, 'https://flow-estate-crm.vercel.app');
+                setTimeout(() => window.close(), 1000);
                 } else {
                 document.body.innerHTML = 'Authentication successful. You can close this window.';
                 }
